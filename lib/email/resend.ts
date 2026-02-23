@@ -1,7 +1,5 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 interface SendInvitationEmailOptions {
   to: string;
   campaignName: string;
@@ -17,6 +15,7 @@ export async function sendInvitationEmail({
   inviteUrl,
   permission,
 }: SendInvitationEmailOptions) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const permissionLabel = permission === 'write' ? 'view and edit' : 'view';
 
   await resend.emails.send({
