@@ -1,33 +1,42 @@
 import Link from "next/link";
-import { ChevronLeft, Sword, Calendar, Clock, Users } from "lucide-react";
+import { notFound } from "next/navigation";
+import { ChevronLeft, Sword, Calendar, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { getTranscriptById } from "@/lib/queries/transcripts";
+import { getCampaignById } from "@/lib/queries/campaigns";
+import type { TranscriptStatus } from "@/lib/types";
 
-const placeholderText = `
-[19:02] DM: You stand at the gates of Barovia. The mist swirls around your ankles, thick and cold. The iron gates creak open as if inviting you in — or daring you to enter.
+function formatDuration(minutes: number | null): string {
+  if (minutes === null) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
 
-[19:04] Aldric: I hold my shield up and step forward. "We face this together."
+function formatDate(sessionDate: string | null, createdAt: string): string {
+  const raw = sessionDate ?? createdAt;
+  return new Date(raw).toLocaleDateString();
+}
 
-[19:05] Zyx: *rolls Arcana* — 18. I try to sense any magical aura emanating from the mist.
-
-[19:06] DM: Zyx, you feel a powerful transmutation magic woven into the very fabric of the mist. It's not just weather — it's a barrier. Something doesn't want you to leave.
-
-[19:08] Mira: I scan the rooftops for any movement. *Perception check* — 22.
-
-[19:09] DM: Mira, in the upper window of the burgmaster's mansion, you see the pale face of a young boy staring down at you. He mouths something you can't quite make out. Then he's gone.
-
-[19:11] Thorin: *mutters* "This place gives me the creeps. Let's find shelter before dark."
-
-[19:13] DM: As if on cue, the last sliver of sun dips below the Balinok Mountains. The darkness that falls over Barovia is total, absolute — and from somewhere deep in the village, you hear the mournful howl of wolves.
-
-[19:15] Aldric: *rolls Insight* — 14. I'm looking for any friendly faces, any signs of ordinary life in this village.
-
-[19:16] DM: The few villagers you see quickly avert their gaze and hurry indoors. No one meets your eye. No one speaks. Barovia is a village of broken people.
-`.trim();
+function statusVariant(status: TranscriptStatus): "success" | "danger" | "warning" {
+  if (status === "processed") return "success";
+  if (status === "error") return "danger";
+  return "warning";
+}
 
 export default async function TranscriptViewerPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: _id } = await params;
+  const { id } = await params;
+
+  const transcript = await getTranscriptById(id);
+  if (!transcript) notFound();
+
+  const campaign = await getCampaignById(transcript.campaign_id);
+  const campaignName = campaign?.name ?? transcript.campaign_id;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -42,10 +51,12 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
         <div className="flex items-start justify-between">
           <div>
             <div className="mb-2 flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Session 14</h1>
-              <Badge variant="success">processed</Badge>
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                {transcript.title}
+              </h1>
+              <Badge variant={statusVariant(transcript.status)}>{transcript.status}</Badge>
             </div>
-            <p className="text-sm text-zinc-500">Curse of Strahd</p>
+            <p className="text-sm text-zinc-500">{campaignName}</p>
           </div>
           <Button variant="secondary">Assign to Campaign</Button>
         </div>
@@ -60,7 +71,7 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
             <CardContent>
               <div className="h-[600px] overflow-y-auto rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
                 <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-                  {placeholderText}
+                  {transcript.content}
                 </pre>
               </div>
             </CardContent>
@@ -76,34 +87,25 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
                 <Calendar className="h-4 w-4 shrink-0 text-zinc-400" />
                 <div>
                   <p className="text-xs text-zinc-500">Date</p>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">Feb 18, 2026</p>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                    {formatDate(transcript.session_date, transcript.created_at)}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Clock className="h-4 w-4 shrink-0 text-zinc-400" />
                 <div>
                   <p className="text-xs text-zinc-500">Duration</p>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">3h 42m</p>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                    {formatDuration(transcript.duration_minutes)}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Sword className="h-4 w-4 shrink-0 text-zinc-400" />
                 <div>
                   <p className="text-xs text-zinc-500">Campaign</p>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">Curse of Strahd</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 text-sm">
-                <Users className="h-4 w-4 shrink-0 mt-0.5 text-zinc-400" />
-                <div>
-                  <p className="text-xs text-zinc-500">Participants</p>
-                  <ul className="mt-1 space-y-1 text-zinc-900 dark:text-zinc-100">
-                    <li>DM (Game Master)</li>
-                    <li>Aldric (Paladin)</li>
-                    <li>Zyx (Wizard)</li>
-                    <li>Mira (Rogue)</li>
-                    <li>Thorin (Fighter)</li>
-                  </ul>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{campaignName}</p>
                 </div>
               </div>
             </CardContent>
@@ -112,7 +114,7 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
           <Card>
             <CardHeader><CardTitle>Source</CardTitle></CardHeader>
             <CardContent>
-              <Badge variant="outline">Discord Bot</Badge>
+              <Badge variant="outline">{transcript.source}</Badge>
               <p className="mt-2 text-xs text-zinc-500">
                 Automatically imported via the Lore Discord bot.
               </p>
