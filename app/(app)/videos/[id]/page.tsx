@@ -1,11 +1,45 @@
 import Link from "next/link";
-import { ChevronLeft, Video, Download, Share2, Calendar, Sword, ScrollText, Palette } from "lucide-react";
+import { notFound } from "next/navigation";
+import { ChevronLeft, Video, Download, Share2, Calendar, Sword, Palette } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { getVideoById } from "@/lib/queries/videos";
+import { getCampaignById } from "@/lib/queries/campaigns";
+import type { VideoStatus } from "@/lib/types";
+
+function formatDuration(seconds: number | null): string {
+  if (seconds === null) return "—";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function formatStyle(style: string): string {
+  return style
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function statusBadgeVariant(status: VideoStatus): "warning" | "danger" {
+  return status === "error" ? "danger" : "warning";
+}
 
 export default async function VideoDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: _id } = await params;
+  const { id } = await params;
+
+  const video = await getVideoById(id);
+  if (!video) notFound();
+
+  const campaign = await getCampaignById(video.campaign_id);
+  const campaignName = campaign?.name ?? video.campaign_id;
+
+  const generatedDate = new Date(video.created_at).toLocaleDateString();
+  const duration = formatDuration(video.duration_seconds);
+  const isCompleted = video.status === "completed";
+  const hasFile = video.storage_path !== null;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -20,19 +54,35 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              The Siege of Barovia — Session 12
+              {video.title}
             </h1>
-            <p className="mt-1 text-sm text-zinc-500">Curse of Strahd</p>
+            <div className="mt-1 flex items-center gap-2">
+              <p className="text-sm text-zinc-500">{campaignName}</p>
+              {!isCompleted && (
+                <Badge variant={statusBadgeVariant(video.status)}>
+                  {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
+                </Badge>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="secondary">
               <Share2 className="h-4 w-4" />
               Share
             </Button>
-            <Button>
-              <Download className="h-4 w-4" />
-              Download
-            </Button>
+            {hasFile ? (
+              <a href={video.storage_path!} download>
+                <Button>
+                  <Download className="h-4 w-4" />
+                  Download
+                </Button>
+              </a>
+            ) : (
+              <Button disabled>
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -43,22 +93,39 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
         <div className="lg:col-span-2">
           <Card>
             <CardContent className="p-0">
-              <div className="flex aspect-video items-center justify-center rounded-t-lg bg-zinc-900">
-                <div className="text-center">
-                  <Video className="mx-auto mb-3 h-16 w-16 text-zinc-600" />
-                  <p className="text-sm text-zinc-500">Video player coming soon</p>
+              {hasFile ? (
+                <video
+                  src={video.storage_path!}
+                  controls
+                  className="w-full rounded-t-lg aspect-video bg-zinc-900"
+                />
+              ) : (
+                <div className="flex aspect-video items-center justify-center rounded-t-lg bg-zinc-900">
+                  <div className="text-center">
+                    <Video className="mx-auto mb-3 h-16 w-16 text-zinc-600" />
+                    <p className="text-sm text-zinc-500">Video player coming soon</p>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-3 dark:border-zinc-800">
                 <div className="flex items-center gap-3 text-sm text-zinc-500">
-                  <span>2:34</span>
+                  <span>{duration}</span>
                   <span>·</span>
-                  <span>Feb 6, 2026</span>
+                  <span>{generatedDate}</span>
                 </div>
-                <Button size="sm" variant="secondary">
-                  <Download className="h-4 w-4" />
-                  Download MP4
-                </Button>
+                {hasFile ? (
+                  <a href={video.storage_path!} download>
+                    <Button size="sm" variant="secondary">
+                      <Download className="h-4 w-4" />
+                      Download MP4
+                    </Button>
+                  </a>
+                ) : (
+                  <Button size="sm" variant="secondary" disabled>
+                    <Download className="h-4 w-4" />
+                    Download MP4
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -73,21 +140,21 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
                 <Calendar className="h-4 w-4 shrink-0 text-zinc-400" />
                 <div>
                   <p className="text-xs text-zinc-500">Generated</p>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">Feb 6, 2026</p>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{generatedDate}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Sword className="h-4 w-4 shrink-0 text-zinc-400" />
                 <div>
                   <p className="text-xs text-zinc-500">Campaign</p>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">Curse of Strahd</p>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{campaignName}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <Palette className="h-4 w-4 shrink-0 text-zinc-400" />
                 <div>
                   <p className="text-xs text-zinc-500">Style</p>
-                  <Badge variant="outline">Cinematic</Badge>
+                  <Badge variant="outline">{formatStyle(video.style)}</Badge>
                 </div>
               </div>
             </CardContent>
@@ -95,22 +162,8 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
 
           <Card>
             <CardHeader><CardTitle>Source Transcripts</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                { session: "Session 12", date: "Feb 4, 2026", id: "3" },
-              ].map((t) => (
-                <Link
-                  key={t.id}
-                  href={`/transcripts/${t.id}`}
-                  className="flex items-center gap-2 rounded-lg p-2 text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                >
-                  <ScrollText className="h-4 w-4 shrink-0 text-zinc-400" />
-                  <div>
-                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{t.session}</p>
-                    <p className="text-xs text-zinc-500">{t.date}</p>
-                  </div>
-                </Link>
-              ))}
+            <CardContent>
+              <p className="text-sm text-zinc-500">Source transcripts linked during generation.</p>
             </CardContent>
           </Card>
 

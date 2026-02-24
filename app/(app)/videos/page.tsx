@@ -3,51 +3,39 @@ import { Video, Download, Filter } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { getAllUserVideos } from "@/lib/queries/videos";
+import { getUserCampaigns } from "@/lib/queries/campaigns";
+import type { VideoStatus } from "@/lib/types";
 
-const videos = [
-  {
-    id: "1",
-    title: "The Siege of Barovia — Session 12",
-    campaign: "Curse of Strahd",
-    date: "Feb 6, 2026",
-    duration: "2:34",
-    style: "Cinematic",
-  },
-  {
-    id: "2",
-    title: "The Amber Temple Revelation — Session 10",
-    campaign: "Curse of Strahd",
-    date: "Jan 24, 2026",
-    duration: "1:58",
-    style: "Dark Fantasy",
-  },
-  {
-    id: "3",
-    title: "The Vault Heist — Session 7",
-    campaign: "Waterdeep: Dragon Heist",
-    date: "Jan 15, 2026",
-    duration: "3:12",
-    style: "Cinematic",
-  },
-  {
-    id: "4",
-    title: "Market Day Madness — Session 5",
-    campaign: "Waterdeep: Dragon Heist",
-    date: "Jan 1, 2026",
-    duration: "2:05",
-    style: "Anime",
-  },
-  {
-    id: "5",
-    title: "Into the Jungle — Session 2",
-    campaign: "Tomb of Annihilation",
-    date: "Dec 22, 2025",
-    duration: "1:47",
-    style: "Painterly",
-  },
-];
+function formatDuration(seconds: number | null): string {
+  if (seconds === null) return "";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
-export default function VideosPage() {
+function formatStyle(style: string): string {
+  return style
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function statusBadgeVariant(status: VideoStatus): "warning" | "danger" {
+  return status === "error" ? "danger" : "warning";
+}
+
+export default async function VideosPage() {
+  const [videos, campaigns] = await Promise.all([
+    getAllUserVideos(),
+    getUserCampaigns(),
+  ]);
+
+  const campaignMap: Record<string, string> = {};
+  for (const c of campaigns) {
+    campaignMap[c.id] = c.name;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -69,38 +57,69 @@ export default function VideosPage() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {videos.map((video) => (
-            <Card key={video.id} className="group overflow-hidden">
-              <CardContent className="p-0">
-                {/* Thumbnail placeholder */}
-                <Link href={`/videos/${video.id}`}>
-                  <div className="relative flex h-44 items-center justify-center bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
-                    <Video className="h-10 w-10 text-zinc-400" />
-                    <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
-                      {video.duration}
-                    </span>
-                  </div>
-                </Link>
+          {videos.map((video) => {
+            const campaignName = campaignMap[video.campaign_id] ?? video.campaign_id;
+            const date = new Date(video.created_at).toLocaleDateString();
+            const duration = formatDuration(video.duration_seconds);
+            const isCompleted = video.status === "completed";
+            const hasFile = video.storage_path !== null;
 
-                {/* Info */}
-                <div className="p-4">
-                  <div className="mb-1 flex items-start justify-between gap-2">
-                    <Link href={`/videos/${video.id}`} className="font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">
-                      {video.title}
-                    </Link>
+            return (
+              <Card key={video.id} className="group overflow-hidden">
+                <CardContent className="p-0">
+                  {/* Thumbnail placeholder */}
+                  <Link href={`/videos/${video.id}`}>
+                    <div className="relative flex h-44 items-center justify-center bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
+                      <Video className="h-10 w-10 text-zinc-400" />
+                      {isCompleted && duration && (
+                        <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
+                          {duration}
+                        </span>
+                      )}
+                      {!isCompleted && (
+                        <span className="absolute bottom-2 right-2">
+                          <Badge variant={statusBadgeVariant(video.status)}>
+                            {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
+                          </Badge>
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+
+                  {/* Info */}
+                  <div className="p-4">
+                    <div className="mb-1 flex items-start justify-between gap-2">
+                      <Link href={`/videos/${video.id}`} className="font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">
+                        {video.title}
+                      </Link>
+                    </div>
+                    <p className="mb-3 text-xs text-zinc-500">{campaignName} · {date}</p>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline">{formatStyle(video.style)}</Badge>
+                      {hasFile ? (
+                        <a
+                          href={video.storage_path!}
+                          download
+                          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download
+                        </a>
+                      ) : (
+                        <button
+                          disabled
+                          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-300 dark:text-zinc-600 disabled:pointer-events-none"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <p className="mb-3 text-xs text-zinc-500">{video.campaign} · {video.date}</p>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline">{video.style}</Badge>
-                    <button className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
-                      <Download className="h-3.5 w-3.5" />
-                      Download
-                    </button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
