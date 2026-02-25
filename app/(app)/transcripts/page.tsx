@@ -3,17 +3,41 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
+import { getAllUserTranscripts } from "@/lib/queries/transcripts";
+import { getUserCampaigns } from "@/lib/queries/campaigns";
+import type { TranscriptStatus } from "@/lib/types";
 
-const transcripts = [
-  { id: "1", session: "Session 14", campaign: "Curse of Strahd", date: "Feb 18, 2026", duration: "3h 42m", source: "Discord", status: "processed" },
-  { id: "2", session: "Session 13", campaign: "Curse of Strahd", date: "Feb 11, 2026", duration: "4h 10m", source: "Discord", status: "processed" },
-  { id: "3", session: "Session 12", campaign: "Curse of Strahd", date: "Feb 4, 2026", duration: "3h 55m", source: "Discord", status: "processed" },
-  { id: "4", session: "Session 8", campaign: "Waterdeep: Dragon Heist", date: "Jan 20, 2026", duration: "2h 50m", source: "Discord", status: "processed" },
-  { id: "5", session: "Session 7", campaign: "Waterdeep: Dragon Heist", date: "Jan 13, 2026", duration: "3h 15m", source: "Discord", status: "processed" },
-  { id: "6", session: "Session 3", campaign: "Tomb of Annihilation", date: "Dec 30, 2025", duration: "4h 05m", source: "Discord", status: "pending" },
-];
+function formatDuration(minutes: number | null): string {
+  if (minutes === null) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
 
-export default function TranscriptsPage() {
+function formatDate(sessionDate: string | null, createdAt: string): string {
+  const raw = sessionDate ?? createdAt;
+  return new Date(raw).toLocaleDateString();
+}
+
+function statusVariant(status: TranscriptStatus): "success" | "danger" | "warning" {
+  if (status === "processed") return "success";
+  if (status === "error") return "danger";
+  return "warning";
+}
+
+export default async function TranscriptsPage() {
+  const [transcripts, campaigns] = await Promise.all([
+    getAllUserTranscripts(),
+    getUserCampaigns(),
+  ]);
+
+  const campaignMap: Record<string, string> = {};
+  for (const c of campaigns) {
+    campaignMap[c.id] = c.name;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -49,27 +73,43 @@ export default function TranscriptsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {transcripts.map((t) => (
-                  <tr key={t.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900">
-                    <td className="px-6 py-4 font-medium text-zinc-900 dark:text-zinc-100">{t.session}</td>
-                    <td className="px-6 py-4 text-zinc-500">{t.campaign}</td>
-                    <td className="px-6 py-4 text-zinc-500">{t.date}</td>
-                    <td className="px-6 py-4 text-zinc-500">{t.duration}</td>
-                    <td className="px-6 py-4">
-                      <Badge variant="outline">{t.source}</Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant={t.status === "processed" ? "success" : "warning"}>
-                        {t.status}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Link href={`/transcripts/${t.id}`} className="text-violet-600 hover:underline dark:text-violet-400">
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {transcripts.map((t) => {
+                  const sessionLabel =
+                    t.title
+                      ? t.title
+                      : t.session_number !== null
+                      ? `Session ${t.session_number}`
+                      : "—";
+                  const campaignName = campaignMap[t.campaign_id] ?? "—";
+                  return (
+                    <tr key={t.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900">
+                      <td className="px-6 py-4 font-medium text-zinc-900 dark:text-zinc-100">
+                        {sessionLabel}
+                      </td>
+                      <td className="px-6 py-4 text-zinc-500">{campaignName}</td>
+                      <td className="px-6 py-4 text-zinc-500">
+                        {formatDate(t.session_date, t.created_at)}
+                      </td>
+                      <td className="px-6 py-4 text-zinc-500">
+                        {formatDuration(t.duration_minutes)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant="outline">{t.source}</Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Link
+                          href={`/transcripts/${t.id}`}
+                          className="text-violet-600 hover:underline dark:text-violet-400"
+                        >
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </CardContent>
