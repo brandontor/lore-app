@@ -33,7 +33,17 @@ async function renderPage(id = 'transcript-1') {
 describe('TranscriptDetailPage — not found', () => {
   it('calls notFound() when transcript does not exist', async () => {
     mockGetTranscriptById.mockResolvedValue(null);
-    // notFound() is a vi.fn() that doesn't throw; page crashes afterwards — catch and assert
+    // notFound() is a no-op vi.fn(); execution continues and crashes on null access — catch it
+    try { await renderPage(); } catch { /* expected TypeError on null access */ }
+    expect(notFound).toHaveBeenCalled();
+  });
+
+  it('calls notFound() when user has no access to the campaign', async () => {
+    mockGetTranscriptById.mockResolvedValue(
+      buildTranscript({ campaign_id: CAMPAIGN_ID })
+    );
+    mockGetCampaignById.mockResolvedValue(null);
+    // Same pattern: notFound() is a no-op, page crashes on null.name access
     try { await renderPage(); } catch { /* expected */ }
     expect(notFound).toHaveBeenCalled();
   });
@@ -86,5 +96,13 @@ describe('TranscriptDetailPage — with transcript', () => {
     );
     await renderPage();
     expect(screen.getByText('manual')).toBeInTheDocument();
+  });
+
+  it('renders "—" for duration when duration_minutes is null', async () => {
+    mockGetTranscriptById.mockResolvedValue(
+      buildTranscript({ duration_minutes: null, campaign_id: CAMPAIGN_ID })
+    );
+    await renderPage();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 });

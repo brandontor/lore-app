@@ -35,7 +35,9 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
   if (!transcript) notFound();
 
   const campaign = await getCampaignById(transcript.campaign_id);
-  const campaignName = campaign?.name ?? transcript.campaign_id;
+  if (!campaign) notFound();
+
+  const campaignName = campaign.name;
 
   return (
     <div className="space-y-6">
@@ -52,7 +54,11 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
           <div>
             <div className="mb-2 flex items-center gap-3">
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                {transcript.title}
+                {transcript.title
+                  ? transcript.title
+                  : transcript.session_number !== null
+                  ? `Session ${transcript.session_number}`
+                  : "—"}
               </h1>
               <Badge variant={statusVariant(transcript.status)}>{transcript.status}</Badge>
             </div>

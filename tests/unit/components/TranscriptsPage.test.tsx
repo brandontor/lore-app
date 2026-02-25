@@ -7,7 +7,6 @@ vi.mock('@/lib/queries/transcripts', () => ({
 }));
 vi.mock('@/lib/queries/campaigns', () => ({
   getUserCampaigns: vi.fn(),
-  getCampaignById: vi.fn(),
 }));
 
 import { getAllUserTranscripts } from '@/lib/queries/transcripts';
@@ -84,5 +83,30 @@ describe('TranscriptsPage — with transcripts', () => {
     ]);
     await renderPage();
     expect(screen.getByText('processed')).toBeInTheDocument();
+  });
+
+  it('renders "Session N" label when title is empty but session_number is set', async () => {
+    mockGetAllUserTranscripts.mockResolvedValue([
+      buildTranscript({ title: '', session_number: 7, campaign_id: CAMPAIGN_ID }),
+    ]);
+    await renderPage();
+    expect(screen.getByText('Session 7')).toBeInTheDocument();
+  });
+
+  it('renders "—" label when both title and session_number are absent', async () => {
+    mockGetAllUserTranscripts.mockResolvedValue([
+      buildTranscript({ title: '', session_number: null, campaign_id: CAMPAIGN_ID }),
+    ]);
+    await renderPage();
+    // "—" appears in both the session label and duration column
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders "—" in duration column when duration_minutes is null', async () => {
+    mockGetAllUserTranscripts.mockResolvedValue([
+      buildTranscript({ duration_minutes: null, campaign_id: CAMPAIGN_ID }),
+    ]);
+    await renderPage();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 });
