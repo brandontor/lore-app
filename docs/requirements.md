@@ -83,10 +83,10 @@ Transcripts, Characters, Locations, World Notes.
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| T-1 | Global transcripts page listing all campaign transcripts | 🚧 |
-| T-2 | Transcript upload: Discord export, manual text entry, or file upload | ❌ |
+| T-1 | Global transcripts page listing all campaign transcripts | ✅ |
+| T-2 | Transcript upload: manual text entry or file upload (Discord path now handled by bot — see I-1 through I-4) | ❌ |
 | T-3 | Transcript status lifecycle: pending → processing → processed → failed | ❌ |
-| T-4 | Transcript detail page: full text + metadata sidebar | 🚧 |
+| T-4 | Transcript detail page: full text + metadata sidebar | ✅ |
 | T-5 | Transcripts scoped to campaign and session number | ✅ |
 
 ### Characters
@@ -152,13 +152,13 @@ Video wizard, AI backend, video player, session context tagging.
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| Vi-1 | Global videos page listing all campaign videos | 🚧 (mock data) |
-| Vi-2 | Video grid: title, campaign, duration, created date | 🚧 (mock data) |
-| Vi-3 | Video detail page: player, metadata panel, source transcripts panel | 🚧 (placeholder player) |
-| Vi-4 | Video player (actual `<video>` element or embed, not placeholder) | ❌ |
-| Vi-5 | Video status lifecycle: pending → processing → completed → failed | ❌ |
-| Vi-6 | Visual style tag on video (matches style selected at generation) | ✅ (schema) |
-| Vi-7 | Video download and share functionality | ❌ |
+| Vi-1 | Global videos page listing all campaign videos | ✅ |
+| Vi-2 | Video grid: title, campaign, duration, created date | ✅ |
+| Vi-3 | Video detail page: player, metadata panel, source transcripts panel | 🚧 (source transcripts panel is a placeholder — join table not queried yet) |
+| Vi-4 | Video player (actual `<video>` element or embed, not placeholder) | 🚧 (renders `<video>` when `storage_path` is set; needs AI backend to produce files) |
+| Vi-5 | Video status lifecycle: pending → processing → completed → failed | 🚧 (status badges shown in UI; backend lifecycle not implemented) |
+| Vi-6 | Visual style tag on video (matches style selected at generation) | ✅ |
+| Vi-7 | Video download and share functionality | 🚧 (download active when `storage_path` set; share is "coming soon") |
 
 ---
 
@@ -189,15 +189,28 @@ Real stats, activity feed, filtering, profile settings.
 
 ---
 
-## Phase 5 — Integrations & Sharing ❌ Not Started
+## Phase 5 — Integrations & Sharing 🚧 In Progress
 
 Discord bot, public pages, notifications.
 
+### Bot
+
 | ID | Requirement | Status |
 |----|-------------|--------|
-| I-1 | Discord bot: auto-export session logs from a Discord server | ❌ |
-| I-2 | Public campaign pages: read-only view without login | ❌ |
-| I-3 | In-app and email notifications: invitations, completed videos | ❌ |
+| I-1 | `/record` command: join voice channel, record all speakers | ✅ |
+| I-2 | Per-utterance Whisper transcription saved as timestamped lines | ✅ |
+| I-3 | `/stop` command: save full transcript to Supabase, post embed summary | ✅ |
+| I-4 | Channel → campaign routing via `discord_channel_configs` table | ✅ |
+| I-5 | DAVE E2EE support (blocked on `@discordjs/voice` fix, issue #11419) | 🚧 |
+
+> **Note:** `daveEncryption: false` workaround is active. Discord enforces DAVE for all voice channels from March 2026; recording may break until `@discordjs/voice` releases a fix (likely 0.19.1+).
+
+### Public Pages & Notifications
+
+| ID | Requirement | Status |
+|----|-------------|--------|
+| I-6 | Public campaign pages: read-only view without login | ❌ |
+| I-7 | In-app and email notifications: invitations, completed videos | ❌ |
 
 ---
 
@@ -209,6 +222,8 @@ Discord bot, public pages, notifications.
 - Campaign ownership is stored in `campaigns.owner_id`. The `campaign_members` table stores non-owner members only.
 - Two helper functions `user_has_campaign_access(campaign_id)` and `user_has_campaign_write(campaign_id)` are reused across RLS policies to avoid duplication.
 - Invitation lookup and acceptance use `SECURITY DEFINER` RPCs that bypass RLS safely — they handle their own access control internally.
+- `storage_path` values from the DB are validated via `isSafeStorageUrl()` before use as `href`/`src` to prevent XSS via `javascript:` URLs.
+- Transcript detail page guards campaign access: if `getCampaignById` returns null (user not a member), the route returns 404 rather than exposing transcript content.
 
 ### Performance
 - Data fetching uses React Server Components wherever possible to avoid client-side waterfalls.

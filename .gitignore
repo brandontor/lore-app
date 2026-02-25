@@ -1,8 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
-/.pnp
+# dependencies (matches all levels in monorepo)
+node_modules
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -11,17 +11,19 @@
 !.yarn/versions
 
 # testing
-/coverage
-/playwright-report
-/test-results
-/tests/e2e/.auth
+packages/app/coverage/
+packages/app/playwright-report/
+packages/app/test-results/
+packages/app/tests/e2e/.auth/
 
 # next.js
-/.next/
-/out/
+packages/app/.next/
+packages/app/out/
 
-# production
-/build
+# build output
+packages/shared/dist/
+packages/bot/dist/
+packages/bot/recordings/
 
 # misc
 .DS_Store
@@ -35,11 +37,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-!.env.example
+!packages/app/.env.example
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+packages/app/next-env.d.ts

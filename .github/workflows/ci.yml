@@ -17,8 +17,9 @@ jobs:
           node-version: '20'
           cache: npm
       - run: npm ci
+      - run: npm run build -w @lore/shared
       - run: npm run lint
-      - run: npx tsc --noEmit
+      - run: npx tsc --noEmit --project packages/app/tsconfig.json
 
   unit:
     name: Unit Tests
@@ -31,12 +32,13 @@ jobs:
           node-version: '20'
           cache: npm
       - run: npm ci
+      - run: npm run build -w @lore/shared
       - run: npm run test:coverage
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: coverage
-          path: coverage/
+          path: packages/app/coverage/
 
   integration:
     name: Integration Tests
@@ -56,13 +58,14 @@ jobs:
       - name: Write .env.test
         run: |
           STATUS=$(supabase status --output json)
-          echo "NEXT_PUBLIC_SUPABASE_URL=$(echo $STATUS | jq -r '.API_URL')" >> .env.test
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(echo $STATUS | jq -r '.ANON_KEY')" >> .env.test
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(echo $STATUS | jq -r '.SERVICE_ROLE_KEY')" >> .env.test
-          echo "NEXT_PUBLIC_APP_URL=http://localhost:3000" >> .env.test
-          echo "RESEND_API_KEY=re_test_placeholder" >> .env.test
-          echo "RESEND_FROM_EMAIL=test@lore-test.local" >> .env.test
+          echo "NEXT_PUBLIC_SUPABASE_URL=$(echo $STATUS | jq -r '.API_URL')" >> packages/app/.env.test
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(echo $STATUS | jq -r '.ANON_KEY')" >> packages/app/.env.test
+          echo "SUPABASE_SERVICE_ROLE_KEY=$(echo $STATUS | jq -r '.SERVICE_ROLE_KEY')" >> packages/app/.env.test
+          echo "NEXT_PUBLIC_APP_URL=http://localhost:3000" >> packages/app/.env.test
+          echo "RESEND_API_KEY=re_test_placeholder" >> packages/app/.env.test
+          echo "RESEND_FROM_EMAIL=test@lore-test.local" >> packages/app/.env.test
       - run: npm ci
+      - run: npm run build -w @lore/shared
       - run: npm run test:integration
 
   e2e:
@@ -84,19 +87,20 @@ jobs:
       - name: Write .env.test
         run: |
           STATUS=$(supabase status --output json)
-          echo "NEXT_PUBLIC_SUPABASE_URL=$(echo $STATUS | jq -r '.API_URL')" >> .env.test
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(echo $STATUS | jq -r '.ANON_KEY')" >> .env.test
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(echo $STATUS | jq -r '.SERVICE_ROLE_KEY')" >> .env.test
-          echo "NEXT_PUBLIC_APP_URL=http://localhost:3000" >> .env.test
-          echo "RESEND_API_KEY=re_test_placeholder" >> .env.test
-          echo "RESEND_FROM_EMAIL=test@lore-test.local" >> .env.test
-          echo "E2E_DM_EMAIL=dm@lore-test.local" >> .env.test
-          echo "E2E_DM_PASSWORD=Password123!" >> .env.test
+          echo "NEXT_PUBLIC_SUPABASE_URL=$(echo $STATUS | jq -r '.API_URL')" >> packages/app/.env.test
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(echo $STATUS | jq -r '.ANON_KEY')" >> packages/app/.env.test
+          echo "SUPABASE_SERVICE_ROLE_KEY=$(echo $STATUS | jq -r '.SERVICE_ROLE_KEY')" >> packages/app/.env.test
+          echo "NEXT_PUBLIC_APP_URL=http://localhost:3000" >> packages/app/.env.test
+          echo "RESEND_API_KEY=re_test_placeholder" >> packages/app/.env.test
+          echo "RESEND_FROM_EMAIL=test@lore-test.local" >> packages/app/.env.test
+          echo "E2E_DM_EMAIL=dm@lore-test.local" >> packages/app/.env.test
+          echo "E2E_DM_PASSWORD=Password123!" >> packages/app/.env.test
       - run: npm ci
+      - run: npm run build -w @lore/shared
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
-          path: playwright-report/
+          path: packages/app/playwright-report/

@@ -1,0 +1,5 @@
+{
+  "buildCommand": "npm run build --workspace=packages/shared && npm run build --workspace=packages/app",
+  "outputDirectory": "packages/app/.next",
+  "installCommand": "npm install"
+}
