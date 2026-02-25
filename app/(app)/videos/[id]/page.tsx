@@ -8,6 +8,16 @@ import { getVideoById } from "@/lib/queries/videos";
 import { getCampaignById } from "@/lib/queries/campaigns";
 import type { VideoStatus } from "@/lib/types";
 
+function isSafeStorageUrl(path: string): boolean {
+  if (path.startsWith("/")) return true;
+  try {
+    const url = new URL(path);
+    return url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function formatDuration(seconds: number | null): string {
   if (seconds === null) return "—";
   const m = Math.floor(seconds / 60);
@@ -38,7 +48,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
   const generatedDate = new Date(video.created_at).toLocaleDateString();
   const duration = formatDuration(video.duration_seconds);
   const isCompleted = video.status === "completed";
-  const hasFile = video.storage_path !== null;
+  const hasFile = video.storage_path !== null && isSafeStorageUrl(video.storage_path);
 
   return (
     <div className="space-y-6">
@@ -97,8 +107,11 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
                 <video
                   src={video.storage_path!}
                   controls
+                  aria-label={video.title}
                   className="w-full rounded-t-lg aspect-video bg-zinc-900"
-                />
+                >
+                  Your browser does not support the video element.
+                </video>
               ) : (
                 <div className="flex aspect-video items-center justify-center rounded-t-lg bg-zinc-900">
                   <div className="text-center">

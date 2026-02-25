@@ -8,10 +8,20 @@ import { getUserCampaigns } from "@/lib/queries/campaigns";
 import type { VideoStatus } from "@/lib/types";
 
 function formatDuration(seconds: number | null): string {
-  if (seconds === null) return "";
+  if (seconds === null) return "—";
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function isSafeStorageUrl(path: string): boolean {
+  if (path.startsWith("/")) return true;
+  try {
+    const url = new URL(path);
+    return url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function formatStyle(style: string): string {
@@ -62,7 +72,7 @@ export default async function VideosPage() {
             const date = new Date(video.created_at).toLocaleDateString();
             const duration = formatDuration(video.duration_seconds);
             const isCompleted = video.status === "completed";
-            const hasFile = video.storage_path !== null;
+            const hasFile = video.storage_path !== null && isSafeStorageUrl(video.storage_path);
 
             return (
               <Card key={video.id} className="group overflow-hidden">

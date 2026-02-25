@@ -7,7 +7,6 @@ vi.mock('@/lib/queries/videos', () => ({
 }));
 vi.mock('@/lib/queries/campaigns', () => ({
   getUserCampaigns: vi.fn(),
-  getCampaignById: vi.fn(),
 }));
 
 import { getAllUserVideos } from '@/lib/queries/videos';
@@ -95,5 +94,14 @@ describe('VideosPage — with videos', () => {
     // Storage path present → renders as <a download>, not a <button>
     const downloadLink = screen.getByRole('link', { name: /download/i });
     expect(downloadLink).toHaveAttribute('href', '/videos/abc.mp4');
+  });
+
+  it('falls back to campaign_id when campaign is not in the campaign map', async () => {
+    mockGetUserCampaigns.mockResolvedValue([]);
+    mockGetAllUserVideos.mockResolvedValue([
+      buildVideo({ campaign_id: CAMPAIGN_ID }),
+    ]);
+    await renderPage();
+    expect(screen.getByText(new RegExp(CAMPAIGN_ID))).toBeInTheDocument();
   });
 });
