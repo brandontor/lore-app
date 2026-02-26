@@ -84,24 +84,24 @@ Transcripts, Characters, Locations, World Notes.
 | ID | Requirement | Status |
 |----|-------------|--------|
 | T-1 | Global transcripts page listing all campaign transcripts | ✅ |
-| T-2 | Transcript upload: manual text entry or file upload (Discord path now handled by bot — see I-1 through I-4) | ❌ |
+| T-2 | Transcript upload: manual text entry or file upload (Discord path now handled by bot — see I-1 through I-4) | ✅ |
 | T-3 | Transcript status lifecycle: pending → processing → processed → failed | ❌ |
 | T-4 | Transcript detail page: full text + metadata sidebar | ✅ |
 | T-5 | Transcripts scoped to campaign and session number | ✅ |
-| T-6 | On-demand session summary: "Generate Summary" button on transcript detail page calls OpenAI and stores result in a new `transcripts.summary` column (full raw transcript is always kept) | ❌ |
-| T-7 | Summary displayed in transcript detail metadata sidebar as formatted Markdown (key events, character moments, cliffhanger); regenerable by write-access users | ❌ |
+| T-6 | On-demand session summary: "Generate Summary" button on transcript detail page calls OpenAI and stores result in a new `transcripts.summary` column (full raw transcript is always kept) | ✅ |
+| T-7 | Summary displayed in transcript detail metadata sidebar as formatted Markdown (key events, character moments, cliffhanger); regenerable by write-access users | ✅ |
 | T-8 | Summary surfaced on campaign Overview tab under recent sessions for quick catch-up by absent players | ❌ |
 
 ### Characters
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| Ch-1 | Character roster on Characters tab | 🚧 |
-| Ch-2 | Character creation form: name, class, race, level, notes | ❌ |
+| Ch-1 | Character roster on Characters tab | ✅ |
+| Ch-2 | Character creation form: name, class, race, level, notes | 🚧 (name/class/race/level done; notes field not in schema yet) |
 | Ch-3 | Character appearance description (physical description, notable features) | ❌ |
 | Ch-4 | Character portrait image upload (stored in Supabase Storage) | ❌ |
 | Ch-5 | Character linked to a player (`player_id` FK to profiles) | ✅ |
-| Ch-6 | Character edit and delete | ❌ |
+| Ch-6 | Character edit and delete | ✅ |
 
 ### NPCs
 
@@ -169,7 +169,7 @@ Video wizard, AI backend, video player, session context tagging.
 
 ---
 
-## Phase 4 — Dashboard & Polish ❌ Not Started
+## Phase 4 — Dashboard & Polish 🚧 In Progress
 
 Real stats, activity feed, filtering, profile settings.
 
@@ -177,9 +177,9 @@ Real stats, activity feed, filtering, profile settings.
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| D-1 | Dashboard stat cards: campaigns, transcripts, videos, characters (real data) | ❌ |
-| D-2 | Recent activity feed: latest actions across user's campaigns (real data) | ❌ |
-| D-3 | Quick action buttons: new campaign, upload transcript | 🚧 |
+| D-1 | Dashboard stat cards: campaigns, transcripts, videos, characters (real data) | ✅ |
+| D-2 | Recent activity feed: latest actions across user's campaigns (real data) | 🚧 (shows recent transcripts; full cross-content activity feed not yet built) |
+| D-3 | Quick action buttons: new campaign, upload transcript | ✅ |
 
 ### Filtering
 
@@ -192,7 +192,7 @@ Real stats, activity feed, filtering, profile settings.
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| P-1 | Profile settings page: edit display name, avatar | ❌ |
+| P-1 | Profile settings page: edit display name, avatar | 🚧 (display name edit done; avatar upload not yet built) |
 
 ---
 
