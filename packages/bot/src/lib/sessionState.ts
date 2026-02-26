@@ -4,6 +4,7 @@ interface SessionEntry {
     sessionTitle: string | null;
     startedAt: Date;
     lines: string[];
+    isPaused: boolean;
 }
 
 const sessions = new Map<string, SessionEntry>();
@@ -20,7 +21,18 @@ export function startSession(
         sessionTitle,
         startedAt: new Date(),
         lines: [],
+        isPaused: false,
     });
+}
+
+export function pauseSession(guildId: string): void {
+    const session = sessions.get(guildId);
+    if (session) session.isPaused = true;
+}
+
+export function resumeSession(guildId: string): void {
+    const session = sessions.get(guildId);
+    if (session) session.isPaused = false;
 }
 
 export function appendLine(guildId: string, line: string): void {

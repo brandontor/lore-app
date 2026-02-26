@@ -88,6 +88,9 @@ Transcripts, Characters, Locations, World Notes.
 | T-3 | Transcript status lifecycle: pending → processing → processed → failed | ❌ |
 | T-4 | Transcript detail page: full text + metadata sidebar | ✅ |
 | T-5 | Transcripts scoped to campaign and session number | ✅ |
+| T-6 | On-demand session summary: "Generate Summary" button on transcript detail page calls OpenAI and stores result in a new `transcripts.summary` column (full raw transcript is always kept) | ❌ |
+| T-7 | Summary displayed in transcript detail metadata sidebar as formatted Markdown (key events, character moments, cliffhanger); regenerable by write-access users | ❌ |
+| T-8 | Summary surfaced on campaign Overview tab under recent sessions for quick catch-up by absent players | ❌ |
 
 ### Characters
 
@@ -143,10 +146,14 @@ Video wizard, AI backend, video player, session context tagging.
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| V-7 | Transcript scene tagging: annotate specific lines/sections as cinematic moments | ❌ |
-| V-8 | Per-session mood/tone tags (e.g. "tense investigation", "triumphant boss fight") | ❌ |
+| V-7 | AI scene extraction: LLM reads transcript content + campaign setting + character roster and outputs structured scene records (title, visual description, mood, start/end timestamps, confidence score) stored in a new `transcript_scenes` table | ❌ |
+| V-8 | Scene extraction triggered on-demand from the transcript detail page ("Extract Scenes" button); DM can review, deselect, or re-run extraction | ❌ |
 | V-9 | Campaign mood board: upload reference images that define the visual aesthetic | ❌ |
 | V-10 | Generation uses character portraits, NPC images, and location art as visual context | ❌ |
+| V-11 | Video generation wizard gains a "Select Scenes" step between transcript selection and style selection; shows AI-extracted scene cards, DM picks which scenes to include | ❌ |
+| V-12 | Scene cards display: title, mood badge (tense / triumphant / mysterious / dramatic / comedic / melancholic), timestamp range, first 2-3 dialogue lines, and confidence indicator | ❌ |
+| V-13 | Video generation produces one short clip per selected scene (targeting 5-20 seconds each), not a single long video | ❌ |
+| V-14 | New DB table `transcript_scenes`: id, transcript_id, campaign_id, title, description (visual prompt), mood, start/end timestamps, raw speaker lines, confidence_score, selected_for_video | ❌ |
 
 ### Videos
 
@@ -202,6 +209,9 @@ Discord bot, public pages, notifications.
 | I-3 | `/stop` command: save full transcript to Supabase, post embed summary | ✅ |
 | I-4 | Channel → campaign routing via `discord_channel_configs` table | ✅ |
 | I-5 | DAVE E2EE support (blocked on `@discordjs/voice` fix, issue #11419) | 🚧 |
+| I-8 | `/pause` command: temporarily suspend audio capture without leaving the voice channel | ✅ |
+| I-9 | `/resume` command: resume audio capture after a pause | ✅ |
+| I-10 | Pause/resume tracked in-memory via `isPaused` flag on `SessionEntry`; no lines are written while paused | ✅ |
 
 > **Note:** `daveEncryption: false` workaround is active. Discord enforces DAVE for all voice channels from March 2026; recording may break until `@discordjs/voice` releases a fix (likely 0.19.1+).
 
