@@ -11,8 +11,8 @@ const {
     SUPABASE_SERVICE_ROLE_KEY,
 } = process.env;
 
-if (!DISCORD_TOKEN || !DISCORD_CLIENT_ID || !GUILD_ID) {
-    throw new Error("Missing required environment variables: DISCORD_TOKEN, DISCORD_CLIENT_ID, GUILD_ID");
+if (!DISCORD_TOKEN || !DISCORD_CLIENT_ID) {
+    throw new Error("Missing required environment variables: DISCORD_TOKEN, DISCORD_CLIENT_ID");
 }
 
 if (!OPENAI_API_KEY) {
@@ -26,7 +26,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 export const config = {
     DISCORD_TOKEN,
     DISCORD_CLIENT_ID,
-    GUILD_ID,
+    GUILD_ID: GUILD_ID ?? null, // optional — only used for local deploy:commands script
     OPENAI_API_KEY,
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,

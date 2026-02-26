@@ -3,6 +3,7 @@ import { getCampaignById, getCampaignMembers } from '@/lib/queries/campaigns';
 import { getTranscriptsByCampaign } from '@/lib/queries/transcripts';
 import { getCharactersByCampaign } from '@/lib/queries/characters';
 import { getVideosByCampaign } from '@/lib/queries/videos';
+import { getDiscordChannelsByCampaign } from '@/lib/queries/discordChannels';
 import { CampaignDetailTabs } from './CampaignDetailTabs';
 
 interface CampaignDetailPageProps {
@@ -15,11 +16,12 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
 
   if (!campaign) notFound();
 
-  const [transcripts, characters, videos, members] = await Promise.all([
+  const [transcripts, characters, videos, members, discordChannels] = await Promise.all([
     getTranscriptsByCampaign(id),
     getCharactersByCampaign(id),
     getVideosByCampaign(id),
     campaign.userRole === 'owner' ? getCampaignMembers(id) : Promise.resolve([]),
+    getDiscordChannelsByCampaign(id),
   ]);
 
   return (
@@ -29,6 +31,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
       characters={characters}
       videos={videos}
       members={members}
+      discordChannels={discordChannels}
     />
   );
 }

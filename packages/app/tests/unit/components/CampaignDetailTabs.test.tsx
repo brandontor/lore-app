@@ -15,6 +15,7 @@ const baseProps = {
   characters: [],
   videos: [],
   members: [],
+  discordChannels: [],
 };
 
 describe('CampaignDetailTabs — tab visibility', () => {

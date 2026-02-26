@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { DiscordConnectButton } from './DiscordConnectButton';
 import type { CampaignWithRole, Transcript, Character, Video as VideoType, CampaignMember } from '@lore/shared';
+import type { DiscordChannelConfig } from '@/lib/queries/discordChannels';
 
 const baseTabs = ['Overview', 'Transcripts', 'Characters', 'Videos'] as const;
 type Tab = (typeof baseTabs)[number] | 'Members';
@@ -32,9 +34,10 @@ interface Props {
   characters: Character[];
   videos: VideoType[];
   members: CampaignMember[];
+  discordChannels: DiscordChannelConfig[];
 }
 
-export function CampaignDetailTabs({ campaign, transcripts, characters, videos, members }: Props) {
+export function CampaignDetailTabs({ campaign, transcripts, characters, videos, members, discordChannels }: Props) {
   const isOwner = campaign.userRole === 'owner';
   const canWrite = isOwner || campaign.userRole === 'write';
 
@@ -143,6 +146,31 @@ export function CampaignDetailTabs({ campaign, transcripts, characters, videos, 
                     <span className="font-medium capitalize text-zinc-900 dark:text-zinc-100">{value}</span>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Discord Bot</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {discordChannels.length === 0 ? (
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      Not connected
+                    </div>
+                    <p className="text-xs text-zinc-500">
+                      Connect the bot to record voice sessions directly from Discord.
+                    </p>
+                    <DiscordConnectButton campaignId={campaign.id} hasChannels={false} />
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      {discordChannels.length} channel{discordChannels.length > 1 ? 's' : ''} linked
+                    </div>
+                    <DiscordConnectButton campaignId={campaign.id} hasChannels={true} />
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
