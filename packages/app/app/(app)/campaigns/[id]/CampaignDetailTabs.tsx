@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Wand2, Edit, ScrollText, Video, User, Users } from 'lucide-react';
+import { Wand2, Edit, ScrollText, Video, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DiscordConnectButton } from './DiscordConnectButton';
+import { CharactersTab } from '@/components/campaigns/CharactersTab';
 import type { CampaignWithRole, Transcript, Character, Video as VideoType, CampaignMember } from '@lore/shared';
 import type { DiscordChannelConfig } from '@/lib/queries/discordChannels';
 
@@ -246,33 +247,11 @@ export function CampaignDetailTabs({ campaign, transcripts, characters, videos, 
 
       {/* Characters */}
       {activeTab === 'Characters' && (
-        <div>
-          {characters.length === 0 ? (
-            <EmptyState
-              icon={User}
-              title="No characters yet"
-              description="Characters will appear here once added."
-            />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {characters.map((char) => (
-                <Card key={char.id}>
-                  <CardContent>
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                      <User className="h-5 w-5 text-zinc-500" />
-                    </div>
-                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{char.name}</h3>
-                    <p className="text-sm text-zinc-500">
-                      Level {char.level}
-                      {char.race ? ` ${char.race}` : ''}
-                      {char.class ? ` ${char.class}` : ''}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+        <CharactersTab
+          campaignId={campaign.id}
+          characters={characters}
+          canWrite={canWrite}
+        />
       )}
 
       {/* Videos */}

@@ -58,6 +58,7 @@ export interface Transcript {
   title: string;
   session_number: number | null;
   content: string;
+  summary: string | null;
   source: TranscriptSource;
   status: TranscriptStatus;
   duration_minutes: number | null;

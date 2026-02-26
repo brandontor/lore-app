@@ -9,6 +9,7 @@ import { getCampaignById } from "@/lib/queries/campaigns";
 import { getCharactersByCampaign } from "@/lib/queries/characters";
 import { SpeakerMappingPanel } from "@/components/transcripts/SpeakerMappingPanel";
 import { DeleteTranscriptButton } from "@/components/transcripts/DeleteTranscriptButton";
+import { GenerateSummaryButton } from "@/components/transcripts/GenerateSummaryButton";
 import type { TranscriptStatus } from "@lore/shared";
 
 function formatDuration(minutes: number | null): string {
@@ -154,8 +155,45 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
               </p>
             </CardContent>
           </Card>
+
+          {/* AI Summary */}
+          <Card>
+            <CardHeader><CardTitle>AI Summary</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {transcript.summary ? (
+                <div
+                  className="prose prose-sm prose-zinc dark:prose-invert max-w-none text-sm"
+                  dangerouslySetInnerHTML={{ __html: markdownToHtml(transcript.summary) }}
+                />
+              ) : (
+                <p className="text-xs text-zinc-500">
+                  No summary yet. Generate one to get key events, character moments, and a cliffhanger recap.
+                </p>
+              )}
+              {canWrite && (
+                <GenerateSummaryButton
+                  transcriptId={id}
+                  hasSummary={!!transcript.summary}
+                />
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   );
+}
+
+/** Minimal Markdown → HTML for summary display (headings, bullets, bold). */
+function markdownToHtml(md: string): string {
+  return md
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/^## (.+)$/gm, '<h3 class="mt-4 mb-1 text-sm font-semibold text-zinc-800 dark:text-zinc-200">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 class="mt-4 mb-1 text-base font-bold text-zinc-900 dark:text-zinc-100">$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc text-zinc-600 dark:text-zinc-400">$1</li>')
+    .replace(/\n\n/g, '<br />')
+    .replace(/\n/g, '\n');
 }

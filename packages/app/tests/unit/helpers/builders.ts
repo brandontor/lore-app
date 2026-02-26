@@ -83,6 +83,7 @@ export function buildTranscript(overrides: Partial<Transcript> = {}): Transcript
     title: 'Session 1',
     session_number: 1,
     content: 'The party gathered at the tavern...',
+    summary: null,
     source: 'manual',
     status: 'pending',
     duration_minutes: null,

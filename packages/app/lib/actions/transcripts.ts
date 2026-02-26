@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import type { ActionResult, TranscriptStatus } from '@lore/shared';
+import OpenAI from 'openai';
 
 const VALID_STATUSES: TranscriptStatus[] = ['pending', 'processing', 'processed', 'error'];
 
@@ -153,6 +154,79 @@ export async function deleteTranscript(transcriptId: string): Promise<ActionResu
   revalidatePath('/transcripts');
   revalidatePath(`/campaigns/${transcript.campaign_id}`);
   redirect('/transcripts');
+}
+
+export async function generateSummary(transcriptId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const adminClient = createAdminClient();
+
+  const { data: transcript } = await adminClient
+    .from('transcripts')
+    .select('campaign_id, content, title, session_number')
+    .eq('id', transcriptId)
+    .single();
+
+  if (!transcript) return { error: 'Transcript not found' };
+  if (!transcript.content?.trim()) return { error: 'Transcript has no content to summarise' };
+
+  const hasWrite = await verifyWriteAccess(adminClient, user.id, transcript.campaign_id);
+  if (!hasWrite) return { error: 'Access denied' };
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return { error: 'OpenAI API key not configured' };
+
+  const openai = new OpenAI({ apiKey });
+
+  const sessionLabel = transcript.title || (transcript.session_number !== null ? `Session ${transcript.session_number}` : 'this session');
+
+  const prompt = `You are a D&D campaign chronicler. Summarise the following session transcript for "${sessionLabel}".
+
+Format your response as markdown with these sections:
+## Summary
+A 2-3 sentence overview of what happened.
+
+## Key Events
+- Bullet list of the 3-5 most important story beats.
+
+## Character Moments
+- Notable actions or decisions by individual characters.
+
+## Cliffhanger / What's Next
+One sentence on the situation at the end of the session.
+
+Keep the tone epic and engaging. Use the character names from the transcript.
+
+---
+TRANSCRIPT:
+${transcript.content.slice(0, 12000)}`;
+
+  let summary: string;
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 800,
+      temperature: 0.7,
+    });
+    summary = response.choices[0]?.message?.content ?? '';
+    if (!summary) return { error: 'OpenAI returned an empty response' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return { error: `OpenAI error: ${message}` };
+  }
+
+  const { error: updateError } = await adminClient
+    .from('transcripts')
+    .update({ summary })
+    .eq('id', transcriptId);
+
+  if (updateError) return { error: updateError.message };
+
+  revalidatePath(`/transcripts/${transcriptId}`);
+  return {};
 }
 
 export async function upsertSpeakerMapping(
