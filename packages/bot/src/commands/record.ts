@@ -55,6 +55,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const session = getSession(guildId)!;
 
     connection.receiver.speaking.on("start", async (userId) => {
+        const currentSession = getSession(guildId);
+        if (!currentSession || currentSession.isPaused) return;
         const user = await member.guild.client.users.fetch(userId);
         if (!user || user.bot) return;
         await createListeningStream(connection.receiver, user, guildId, session.startedAt);

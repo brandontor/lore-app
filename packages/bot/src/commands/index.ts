@@ -3,6 +3,8 @@ import * as stop from "./stop";
 import * as link from "./link";
 import * as unlink from "./unlink";
 import * as status from "./status";
+import * as pause from "./pause";
+import * as resume from "./resume";
 
 export const commands = {
     record,
@@ -10,4 +12,6 @@ export const commands = {
     link,
     unlink,
     status,
+    pause,
+    resume,
 };
