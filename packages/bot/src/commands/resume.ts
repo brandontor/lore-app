@@ -9,21 +9,21 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: ChatInputCommandInteraction) {
     const guildId = interaction.guildId;
     if (!guildId) {
-        await interaction.reply("❌ This command must be used in a server.");
+        await interaction.reply({ content: "❌ This command must be used in a server.", ephemeral: true });
         return;
     }
 
     const session = getSession(guildId);
     if (!session) {
-        await interaction.reply("❌ No active recording session. Use `/record` to start one.");
+        await interaction.reply({ content: "❌ No active recording session. Use `/record` to start one.", ephemeral: true });
         return;
     }
 
     if (!session.isPaused) {
-        await interaction.reply("⚠️ Recording is not paused.");
+        await interaction.reply({ content: "⚠️ Recording is not paused.", ephemeral: true });
         return;
     }
 
     resumeSession(guildId);
-    await interaction.reply("▶️ Recording resumed.");
+    await interaction.reply({ content: "▶️ Recording resumed.", ephemeral: true });
 }

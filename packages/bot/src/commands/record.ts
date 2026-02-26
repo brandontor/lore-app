@@ -59,6 +59,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         if (!currentSession || currentSession.isPaused) return;
         const user = await member.guild.client.users.fetch(userId);
         if (!user || user.bot) return;
-        await createListeningStream(connection.receiver, user, guildId, session.startedAt);
+        await createListeningStream(connection.receiver, user, guildId, currentSession.startedAt);
     });
 }

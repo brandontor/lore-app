@@ -6,7 +6,7 @@ import type { VoiceReceiver } from "@discordjs/voice";
 import type { User } from "discord.js";
 import OpenAI from "openai";
 import { config } from "../config.js";
-import { appendLine } from "../lib/sessionState.js";
+import { appendLine, getSession } from "../lib/sessionState.js";
 
 const openai = new OpenAI({ apiKey: config.OPENAI_API_KEY });
 
@@ -60,6 +60,9 @@ export async function createListeningStream(
         const { size } = fs.statSync(filename);
         if (size < 5000) return;
 
+        // Skip Whisper call and line write if the session was paused mid-utterance
+        if (getSession(guildId)?.isPaused) return;
+
         const result = await openai.audio.transcriptions.create({
             file: fs.createReadStream(filename),
             model: "gpt-4o-mini-transcribe",
@@ -67,7 +70,7 @@ export async function createListeningStream(
         });
 
         const text = result.text.trim();
-        if (text) {
+        if (text && !getSession(guildId)?.isPaused) {
             const line = `[${formatElapsed(sessionStart)}] ${user.username}: ${text}`;
             console.log(`🗣️ ${line}`);
             appendLine(guildId, line);
