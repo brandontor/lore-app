@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useRef } from 'react';
+import { useActionState, useState } from 'react';
 import type { TranscriptStatus } from '@lore/shared';
 
 const STATUSES: { value: TranscriptStatus; label: string }[] = [
@@ -9,6 +9,8 @@ const STATUSES: { value: TranscriptStatus; label: string }[] = [
   { value: 'processed', label: 'Processed' },
   { value: 'error', label: 'Error' },
 ];
+
+const MAX_FILE_BYTES = 5_000_000; // 5 MB
 
 interface TranscriptFormProps {
   action: (formData: FormData) => Promise<{ error?: string } | undefined>;
@@ -30,7 +32,8 @@ export function TranscriptForm({
   showStatus = false,
   submitLabel = 'Create Transcript',
 }: TranscriptFormProps) {
-  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const [content, setContent] = useState(defaultValues.content ?? '');
+  const [fileError, setFileError] = useState('');
 
   const [state, formAction, pending] = useActionState(
     async (_prev: { error?: string } | undefined, formData: FormData) => {
@@ -40,12 +43,20 @@ export function TranscriptForm({
   );
 
   function handleFileLoad(e: React.ChangeEvent<HTMLInputElement>) {
+    setFileError('');
     const file = e.target.files?.[0];
-    if (!file || !contentRef.current) return;
+    if (!file) return;
+
+    if (file.size > MAX_FILE_BYTES) {
+      setFileError('File is too large. Maximum size is 5 MB.');
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
-      if (contentRef.current && typeof ev.target?.result === 'string') {
-        contentRef.current.value = ev.target.result;
+      if (typeof ev.target?.result === 'string') {
+        setContent(ev.target.result);
       }
     };
     reader.readAsText(file);
@@ -139,12 +150,17 @@ export function TranscriptForm({
             />
           </label>
         </div>
+        {fileError && (
+          <p className="mb-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+            {fileError}
+          </p>
+        )}
         <textarea
-          ref={contentRef}
           name="content"
           rows={16}
           required
-          defaultValue={defaultValues.content ?? ''}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
           placeholder="Paste or load your session transcript here…"
           className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-mono text-sm text-zinc-900 placeholder-zinc-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:placeholder-zinc-500"
         />

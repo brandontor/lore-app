@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { getTranscriptById, getSpeakerMappingsByCampaign } from "@/lib/queries/transcripts";
 import { getCampaignById } from "@/lib/queries/campaigns";
 import { getCharactersByCampaign } from "@/lib/queries/characters";
-import { deleteTranscript } from "@/lib/actions/transcripts";
 import { SpeakerMappingPanel } from "@/components/transcripts/SpeakerMappingPanel";
+import { DeleteTranscriptButton } from "@/components/transcripts/DeleteTranscriptButton";
 import type { TranscriptStatus } from "@lore/shared";
 
 function formatDuration(minutes: number | null): string {
@@ -47,11 +47,6 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
 
   const canWrite = campaign.userRole === 'owner' || campaign.userRole === 'write';
 
-  async function handleDelete() {
-    'use server';
-    await deleteTranscript(id);
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -85,19 +80,7 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
                   Edit
                 </Button>
               </Link>
-              <form action={handleDelete}>
-                <Button
-                  variant="danger"
-                  type="submit"
-                  onClick={(e) => {
-                    if (!confirm("Delete this transcript? This cannot be undone.")) {
-                      e.preventDefault();
-                    }
-                  }}
-                >
-                  Delete
-                </Button>
-              </form>
+              <DeleteTranscriptButton transcriptId={id} />
             </div>
           )}
         </div>
