@@ -6,18 +6,13 @@ import { ChevronLeft, ChevronRight, ScrollText, Palette, Wand2, Check, Lock } fr
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import type { Transcript } from "@lore/shared";
 
 const steps = [
   { id: 1, label: "Select Transcripts" },
   { id: 2, label: "Style & Tone" },
   { id: 3, label: "Review & Generate" },
-];
-
-const transcripts = [
-  { id: "1", session: "Session 14", date: "Feb 18, 2026", duration: "3h 42m" },
-  { id: "2", session: "Session 13", date: "Feb 11, 2026", duration: "4h 10m" },
-  { id: "3", session: "Session 12", date: "Feb 4, 2026", duration: "3h 55m" },
-  { id: "4", session: "Session 11", date: "Jan 28, 2026", duration: "3h 20m" },
 ];
 
 const styles = [
@@ -27,7 +22,16 @@ const styles = [
   { id: "dark-fantasy", label: "Dark Fantasy", description: "Gritty, atmospheric visuals inspired by dark high fantasy art" },
 ];
 
-export function GenerateVideoWizard({ campaignId }: { campaignId: string }) {
+function formatDuration(minutes: number | null): string {
+  if (minutes === null) return "";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+export function GenerateVideoWizard({ campaignId, transcripts }: { campaignId: string; transcripts: Transcript[] }) {
   const [step, setStep] = useState(1);
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -96,31 +100,46 @@ export function GenerateVideoWizard({ campaignId }: { campaignId: string }) {
             <p className="text-sm text-zinc-500">
               Choose which session transcripts to include in the video.
             </p>
-            {transcripts.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => toggleTranscript(t.id)}
-                className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
-                  selectedTranscripts.includes(t.id)
-                    ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
-                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700"
-                }`}
-              >
-                <div
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                    selectedTranscripts.includes(t.id)
-                      ? "border-violet-600 bg-violet-600"
-                      : "border-zinc-300 dark:border-zinc-600"
-                  }`}
-                >
-                  {selectedTranscripts.includes(t.id) && <Check className="h-3 w-3 text-white" />}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{t.session}</p>
-                  <p className="text-sm text-zinc-500">{t.date} · {t.duration}</p>
-                </div>
-              </button>
-            ))}
+            {transcripts.length === 0 ? (
+              <EmptyState
+                icon={ScrollText}
+                title="No transcripts yet"
+                description="Add a session transcript to this campaign before generating a video."
+              />
+            ) : (
+              transcripts.map((t) => {
+                const label = t.title || (t.session_number !== null ? `Session ${t.session_number}` : "Untitled");
+                const date = t.session_date
+                  ? new Date(t.session_date).toLocaleDateString()
+                  : new Date(t.created_at).toLocaleDateString();
+                const duration = formatDuration(t.duration_minutes);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => toggleTranscript(t.id)}
+                    className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
+                      selectedTranscripts.includes(t.id)
+                        ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
+                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                        selectedTranscripts.includes(t.id)
+                          ? "border-violet-600 bg-violet-600"
+                          : "border-zinc-300 dark:border-zinc-600"
+                      }`}
+                    >
+                      {selectedTranscripts.includes(t.id) && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-zinc-900 dark:text-zinc-100">{label}</p>
+                      <p className="text-sm text-zinc-500">{date}{duration ? ` · ${duration}` : ""}</p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </CardContent>
         </Card>
       )}
@@ -179,7 +198,11 @@ export function GenerateVideoWizard({ campaignId }: { campaignId: string }) {
                   {selectedTranscripts.length > 0
                     ? transcripts
                         .filter((t) => selectedTranscripts.includes(t.id))
-                        .map((t) => <Badge key={t.id}>{t.session}</Badge>)
+                        .map((t) => (
+                          <Badge key={t.id}>
+                            {t.title || (t.session_number !== null ? `Session ${t.session_number}` : "Untitled")}
+                          </Badge>
+                        ))
                     : <span className="text-sm text-zinc-400">None selected</span>
                   }
                 </div>
