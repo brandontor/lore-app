@@ -1,5 +1,5 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server';
-import type { Transcript } from '@lore/shared';
+import type { Transcript, SpeakerCharacterMapping } from '@lore/shared';
 
 export async function getTranscriptsByCampaign(campaignId: string): Promise<Transcript[]> {
   const adminClient = createAdminClient();
@@ -53,4 +53,17 @@ export async function getTranscriptById(id: string): Promise<Transcript | null> 
 
   if (error || !data) return null;
   return data as Transcript;
+}
+
+export async function getSpeakerMappingsByCampaign(campaignId: string): Promise<SpeakerCharacterMapping[]> {
+  const adminClient = createAdminClient();
+
+  const { data, error } = await adminClient
+    .from('campaign_speaker_mappings')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .order('speaker_name', { ascending: true });
+
+  if (error || !data) return [];
+  return data as SpeakerCharacterMapping[];
 }

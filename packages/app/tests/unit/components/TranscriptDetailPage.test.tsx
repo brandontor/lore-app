@@ -5,24 +5,39 @@ import { buildTranscript, buildCampaignWithRole, CAMPAIGN_ID } from '../helpers/
 
 vi.mock('@/lib/queries/transcripts', () => ({
   getTranscriptById: vi.fn(),
+  getSpeakerMappingsByCampaign: vi.fn(),
 }));
 vi.mock('@/lib/queries/campaigns', () => ({
   getCampaignById: vi.fn(),
   getUserCampaigns: vi.fn(),
 }));
+vi.mock('@/lib/queries/characters', () => ({
+  getCharactersByCampaign: vi.fn(),
+}));
+vi.mock('@/lib/actions/transcripts', () => ({
+  deleteTranscript: vi.fn(),
+  createTranscript: vi.fn(),
+  updateTranscript: vi.fn(),
+  upsertSpeakerMapping: vi.fn(),
+}));
 
-import { getTranscriptById } from '@/lib/queries/transcripts';
+import { getTranscriptById, getSpeakerMappingsByCampaign } from '@/lib/queries/transcripts';
 import { getCampaignById } from '@/lib/queries/campaigns';
+import { getCharactersByCampaign } from '@/lib/queries/characters';
 import TranscriptDetailPage from '@/app/(app)/transcripts/[id]/page';
 
 const mockGetTranscriptById = vi.mocked(getTranscriptById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
+const mockGetSpeakerMappingsByCampaign = vi.mocked(getSpeakerMappingsByCampaign);
+const mockGetCharactersByCampaign = vi.mocked(getCharactersByCampaign);
 
 const CAMPAIGN = buildCampaignWithRole({ id: CAMPAIGN_ID, name: 'Curse of Strahd' });
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetCampaignById.mockResolvedValue(CAMPAIGN);
+  mockGetSpeakerMappingsByCampaign.mockResolvedValue([]);
+  mockGetCharactersByCampaign.mockResolvedValue([]);
 });
 
 async function renderPage(id = 'transcript-1') {

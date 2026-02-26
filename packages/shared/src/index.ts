@@ -92,6 +92,15 @@ export interface Video {
   updated_at: string;
 }
 
+export interface SpeakerCharacterMapping {
+  id: string;
+  campaign_id: string;
+  speaker_name: string;
+  character_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ActionResult<T = undefined> {
   error?: string;
   data?: T;

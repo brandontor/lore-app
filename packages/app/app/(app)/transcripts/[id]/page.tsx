@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Sword, Calendar, Clock } from "lucide-react";
+import { ChevronLeft, Sword, Calendar, Clock, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { getTranscriptById } from "@/lib/queries/transcripts";
+import { getTranscriptById, getSpeakerMappingsByCampaign } from "@/lib/queries/transcripts";
 import { getCampaignById } from "@/lib/queries/campaigns";
+import { getCharactersByCampaign } from "@/lib/queries/characters";
+import { deleteTranscript } from "@/lib/actions/transcripts";
+import { SpeakerMappingPanel } from "@/components/transcripts/SpeakerMappingPanel";
 import type { TranscriptStatus } from "@lore/shared";
 
 function formatDuration(minutes: number | null): string {
@@ -34,10 +37,20 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
   const transcript = await getTranscriptById(id);
   if (!transcript) notFound();
 
-  const campaign = await getCampaignById(transcript.campaign_id);
+  const [campaign, characters, speakerMappings] = await Promise.all([
+    getCampaignById(transcript.campaign_id),
+    getCharactersByCampaign(transcript.campaign_id),
+    getSpeakerMappingsByCampaign(transcript.campaign_id),
+  ]);
+
   if (!campaign) notFound();
 
-  const campaignName = campaign.name;
+  const canWrite = campaign.userRole === 'owner' || campaign.userRole === 'write';
+
+  async function handleDelete() {
+    'use server';
+    await deleteTranscript(id);
+  }
 
   return (
     <div className="space-y-6">
@@ -62,16 +75,38 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
               </h1>
               <Badge variant={statusVariant(transcript.status)}>{transcript.status}</Badge>
             </div>
-            <p className="text-sm text-zinc-500">{campaignName}</p>
+            <p className="text-sm text-zinc-500">{campaign.name}</p>
           </div>
-          <Button variant="secondary">Assign to Campaign</Button>
+          {canWrite && (
+            <div className="flex items-center gap-2">
+              <Link href={`/transcripts/${id}/edit`}>
+                <Button variant="secondary">
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              </Link>
+              <form action={handleDelete}>
+                <Button
+                  variant="danger"
+                  type="submit"
+                  onClick={(e) => {
+                    if (!confirm("Delete this transcript? This cannot be undone.")) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Two-column layout */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Transcript text */}
-        <div className="lg:col-span-2">
+        {/* Transcript text + speaker mappings */}
+        <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader><CardTitle>Session Transcript</CardTitle></CardHeader>
             <CardContent>
@@ -82,6 +117,14 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
               </div>
             </CardContent>
           </Card>
+
+          <SpeakerMappingPanel
+            transcript={transcript}
+            characters={characters}
+            initialMappings={speakerMappings}
+            canWrite={canWrite}
+            campaignId={transcript.campaign_id}
+          />
         </div>
 
         {/* Metadata sidebar */}
@@ -111,7 +154,7 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
                 <Sword className="h-4 w-4 shrink-0 text-zinc-400" />
                 <div>
                   <p className="text-xs text-zinc-500">Campaign</p>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{campaignName}</p>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{campaign.name}</p>
                 </div>
               </div>
             </CardContent>
@@ -122,7 +165,9 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
             <CardContent>
               <Badge variant="outline">{transcript.source}</Badge>
               <p className="mt-2 text-xs text-zinc-500">
-                Automatically imported via the Lore Discord bot.
+                {transcript.source === 'manual'
+                  ? 'Manually uploaded via the web app.'
+                  : 'Automatically imported via the Lore Discord bot.'}
               </p>
             </CardContent>
           </Card>

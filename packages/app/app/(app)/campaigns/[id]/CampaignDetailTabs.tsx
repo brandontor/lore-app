@@ -152,6 +152,16 @@ export function CampaignDetailTabs({ campaign, transcripts, characters, videos, 
       {/* Transcripts */}
       {activeTab === 'Transcripts' && (
         <div className="space-y-4">
+          {canWrite && (
+            <div className="flex justify-end">
+              <Link href={`/campaigns/${campaign.id}/transcripts/new`}>
+                <Button>
+                  <ScrollText className="h-4 w-4" />
+                  New Transcript
+                </Button>
+              </Link>
+            </div>
+          )}
           {transcripts.length === 0 ? (
             <EmptyState
               icon={ScrollText}
