@@ -1,4 +1,4 @@
-import { ScrollText, Filter } from "lucide-react";
+import { ScrollText, Filter, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -45,10 +45,19 @@ export default async function TranscriptsPage() {
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Transcripts</h1>
           <p className="mt-1 text-sm text-zinc-500">Session transcripts from Discord or uploaded manually.</p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900">
-          <Filter className="h-4 w-4" />
-          Filter by Campaign
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900">
+            <Filter className="h-4 w-4" />
+            Filter
+          </button>
+          <Link
+            href="/transcripts/new"
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500"
+          >
+            <Plus className="h-4 w-4" />
+            New Transcript
+          </Link>
+        </div>
       </div>
 
       {transcripts.length === 0 ? (

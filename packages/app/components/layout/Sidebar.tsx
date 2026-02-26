@@ -8,6 +8,7 @@ import {
   ScrollText,
   Video,
   Sword,
+  UserCircle,
 } from "lucide-react";
 
 const navItems = [
@@ -15,6 +16,7 @@ const navItems = [
   { label: "Campaigns", href: "/campaigns", icon: Sword },
   { label: "Transcripts", href: "/transcripts", icon: ScrollText },
   { label: "Videos", href: "/videos", icon: Video },
+  { label: "Profile", href: "/profile", icon: UserCircle },
 ];
 
 export function Sidebar() {

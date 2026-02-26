@@ -99,6 +99,8 @@ Schema lives in `supabase/migrations/`. Must be run manually in the Supabase SQL
 
 - `001_initial_schema.sql` — Tables: `profiles`, `campaigns`, `campaign_members`, `campaign_invitations`, `transcripts`, `characters`, `videos`, `video_transcripts`
 - `002_discord_channel_configs.sql` — Table: `discord_channel_configs` (maps Discord channel IDs to campaigns)
+- `004_speaker_character_mappings.sql` — Table: `campaign_speaker_mappings`
+- `005_transcript_summary.sql` — Adds `summary TEXT` column to `transcripts`
 
 A DB trigger `on_auth_user_created` auto-creates a `profiles` row on signup, reading `display_name` from `raw_user_meta_data`.
 
@@ -111,6 +113,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_APP_URL       # Used in invitation email links
 RESEND_API_KEY
 RESEND_FROM_EMAIL
+OPENAI_API_KEY            # For AI session summary generation
 ```
 
 **Bot (`packages/bot/.env`):**
@@ -125,5 +128,4 @@ SUPABASE_SERVICE_ROLE_KEY
 
 ### Pages Not Yet Wired to Real Data
 
-- `packages/app/app/(app)/dashboard/page.tsx` — placeholder stats
 - `packages/app/app/(app)/campaigns/[id]/generate/page.tsx` — AI video generation (backend not built)
