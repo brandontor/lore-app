@@ -184,7 +184,11 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
   );
 }
 
-/** Minimal Markdown → HTML for summary display (headings, bullets, bold). */
+/**
+ * Minimal Markdown → HTML for summary display (headings, bullets, bold).
+ * XSS-safe: all user content is entity-escaped before any regex substitution,
+ * so capture groups only re-insert already-escaped text into tags with no attributes.
+ */
 function markdownToHtml(md: string): string {
   return md
     .replace(/&/g, '&amp;')
@@ -194,6 +198,6 @@ function markdownToHtml(md: string): string {
     .replace(/^# (.+)$/gm, '<h2 class="mt-4 mb-1 text-base font-bold text-zinc-900 dark:text-zinc-100">$1</h2>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc text-zinc-600 dark:text-zinc-400">$1</li>')
-    .replace(/\n\n/g, '<br />')
-    .replace(/\n/g, '\n');
+    .replace(/((?:<li[^>]*>.*<\/li>\n?)+)/g, '<ul class="my-1 space-y-0.5">$1</ul>')
+    .replace(/\n\n/g, '<br />');
 }

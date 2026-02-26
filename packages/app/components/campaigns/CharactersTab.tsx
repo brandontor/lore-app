@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { User, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -15,6 +16,7 @@ interface CharactersTabProps {
 }
 
 export function CharactersTab({ campaignId, characters: initial, canWrite }: CharactersTabProps) {
+  const router = useRouter();
   const [characters, setCharacters] = useState(initial);
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,9 +25,8 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
   async function handleCreate(formData: FormData) {
     const result = await createCharacter(campaignId, formData);
     if (result?.error) return result;
-    // Reload characters via a page refresh approach — revalidatePath handles it
-    // For instant UI update we close the form; the page will revalidate on next load
     setShowCreate(false);
+    router.refresh();
     return result;
   }
 
@@ -33,10 +34,12 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
     const result = await updateCharacter(characterId, formData);
     if (result?.error) return result;
     setEditingId(null);
+    router.refresh();
     return result;
   }
 
-  function handleDelete(characterId: string) {
+  function handleDelete(characterId: string, characterName: string) {
+    if (!window.confirm(`Delete ${characterName}? This cannot be undone.`)) return;
     startTransition(async () => {
       await deleteCharacter(characterId);
       setCharacters((prev) => prev.filter((c) => c.id !== characterId));
@@ -104,7 +107,7 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(char.id)}
+                            onClick={() => handleDelete(char.id, char.name)}
                             className="rounded p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950"
                             aria-label="Delete character"
                           >

@@ -212,7 +212,7 @@ ${transcript.content.slice(0, 12000)}`;
       temperature: 0.7,
     });
     summary = response.choices[0]?.message?.content ?? '';
-    if (!summary) return { error: 'OpenAI returned an empty response' };
+    if (!summary.trim()) return { error: 'OpenAI returned an empty response' };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return { error: `OpenAI error: ${message}` };

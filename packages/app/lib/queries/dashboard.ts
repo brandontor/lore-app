@@ -1,4 +1,4 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 
 export interface DashboardStats {
   campaignCount: number;
@@ -11,11 +11,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { campaignCount: 0, transcriptCount: 0, videoCount: 0 };
 
-  const adminClient = createAdminClient();
-
   const [{ data: owned }, { data: memberships }] = await Promise.all([
-    adminClient.from('campaigns').select('id').eq('owner_id', user.id),
-    adminClient.from('campaign_members').select('campaign_id').eq('user_id', user.id),
+    supabase.from('campaigns').select('id').eq('owner_id', user.id),
+    supabase.from('campaign_members').select('campaign_id').eq('user_id', user.id),
   ]);
 
   const campaignIds = [
@@ -27,11 +25,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   if (campaignCount === 0) return { campaignCount: 0, transcriptCount: 0, videoCount: 0 };
 
   const [{ count: transcriptCount }, { count: videoCount }] = await Promise.all([
-    adminClient
+    supabase
       .from('transcripts')
       .select('id', { count: 'exact', head: true })
       .in('campaign_id', campaignIds),
-    adminClient
+    supabase
       .from('videos')
       .select('id', { count: 'exact', head: true })
       .in('campaign_id', campaignIds),
