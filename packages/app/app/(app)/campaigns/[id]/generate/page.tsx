@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getCampaignById } from '@/lib/queries/campaigns';
 import { getTranscriptsByCampaign } from '@/lib/queries/transcripts';
+import { getCharactersByCampaign } from '@/lib/queries/characters';
 import { GenerateVideoWizard } from './GenerateVideoWizard';
 
 export default async function GenerateVideoPage({
@@ -16,7 +17,10 @@ export default async function GenerateVideoPage({
   const canWrite = campaign.userRole === 'owner' || campaign.userRole === 'write';
   if (!canWrite) notFound();
 
-  const transcripts = await getTranscriptsByCampaign(id);
+  const [transcripts, characters] = await Promise.all([
+    getTranscriptsByCampaign(id),
+    getCharactersByCampaign(id),
+  ]);
 
-  return <GenerateVideoWizard campaignId={id} transcripts={transcripts} />;
+  return <GenerateVideoWizard campaignId={id} transcripts={transcripts} characters={characters} />;
 }
