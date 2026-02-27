@@ -238,12 +238,15 @@ export async function extractScenes(transcriptId: string, campaignId: string): P
 
   const adminClient = createAdminClient();
 
+  const hasWrite = await verifyWriteAccess(adminClient, user.id, campaignId);
+  if (!hasWrite) return { error: 'Access denied' };
+
   const [
     { data: transcript },
     { data: campaign },
     { data: characters },
   ] = await Promise.all([
-    adminClient.from('transcripts').select('content, title, session_number').eq('id', transcriptId).single(),
+    adminClient.from('transcripts').select('content, title, session_number').eq('id', transcriptId).eq('campaign_id', campaignId).single(),
     adminClient.from('campaigns').select('name, setting, system').eq('id', campaignId).single(),
     adminClient.from('characters').select('name, class, race, level').eq('campaign_id', campaignId),
   ]);
@@ -251,9 +254,6 @@ export async function extractScenes(transcriptId: string, campaignId: string): P
   if (!transcript) return { error: 'Transcript not found' };
   if (!transcript.content?.trim()) return { error: 'Transcript has no content to analyse' };
   if (!campaign) return { error: 'Campaign not found' };
-
-  const hasWrite = await verifyWriteAccess(adminClient, user.id, campaignId);
-  if (!hasWrite) return { error: 'Access denied' };
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { error: 'OpenAI API key not configured' };

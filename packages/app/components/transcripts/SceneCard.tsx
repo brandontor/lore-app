@@ -17,26 +17,33 @@ const moodStyles: Record<SceneMood, string> = {
 interface SceneCardProps {
   scene: TranscriptScene;
   canWrite: boolean;
+  /** When true, toggling updates local state only — no server action is called. Use in wizard. */
+  readOnly?: boolean;
   onToggle?: (id: string, selected: boolean) => void;
 }
 
-export function SceneCard({ scene, canWrite, onToggle }: SceneCardProps) {
-  const [selected, setSelected] = useState(scene.selected_for_video);
+export function SceneCard({ scene, canWrite, readOnly = false, onToggle }: SceneCardProps) {
+  // When readOnly, the caller owns selected state via scene.selected_for_video.
+  // When not readOnly, we manage it locally (initialized from scene.selected_for_video).
+  const [localSelected, setLocalSelected] = useState(scene.selected_for_video);
+  const selected = readOnly ? scene.selected_for_video : localSelected;
   const [, startTransition] = useTransition();
 
   function handleToggle() {
     if (!canWrite) return;
     const next = !selected;
-    setSelected(next);
+    if (!readOnly) setLocalSelected(next);
     onToggle?.(scene.id, next);
-    startTransition(async () => {
-      const result = await toggleSceneSelection(scene.id, next);
-      if (result?.error) {
-        // Revert on error
-        setSelected(!next);
-        onToggle?.(scene.id, !next);
-      }
-    });
+    if (!readOnly) {
+      startTransition(async () => {
+        const result = await toggleSceneSelection(scene.id, next);
+        if (result?.error) {
+          // Revert on error
+          setLocalSelected(!next);
+          onToggle?.(scene.id, !next);
+        }
+      });
+    }
   }
 
   const confidenceColor =

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Clapperboard } from 'lucide-react';
 import { extractScenes } from '@/lib/actions/transcripts';
 
@@ -11,6 +12,7 @@ interface ExtractScenesButtonProps {
 }
 
 export function ExtractScenesButton({ transcriptId, campaignId, hasScenes }: ExtractScenesButtonProps) {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -18,7 +20,11 @@ export function ExtractScenesButton({ transcriptId, campaignId, hasScenes }: Ext
     setError(null);
     startTransition(async () => {
       const result = await extractScenes(transcriptId, campaignId);
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        router.refresh();
+      }
     });
   }
 

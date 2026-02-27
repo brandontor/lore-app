@@ -4,6 +4,7 @@ import type {
   CampaignMember,
   Invitation,
   Transcript,
+  TranscriptScene,
   Video,
   Profile,
 } from '@lore/shared';
@@ -91,6 +92,27 @@ export function buildTranscript(overrides: Partial<Transcript> = {}): Transcript
     uploaded_by: OWNER_ID,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export const TRANSCRIPT_ID = '00000000-0000-0000-0003-000000000001';
+export const SCENE_ID      = '00000000-0000-0000-0004-000000000001';
+
+export function buildScene(overrides: Partial<TranscriptScene> = {}): TranscriptScene {
+  return {
+    id: SCENE_ID,
+    transcript_id: TRANSCRIPT_ID,
+    campaign_id: CAMPAIGN_ID,
+    title: 'The Dragon Awakens',
+    description: 'The ancient dragon rises from its lair as the party watches in awe.',
+    mood: 'dramatic',
+    start_timestamp: '00:30:00',
+    end_timestamp: '00:45:00',
+    raw_speaker_lines: ['[DM] The ground begins to tremble.', '[Aria] Watch out everyone!', '[Theron] Draw your weapons!'],
+    confidence_score: 0.8,
+    selected_for_video: true,
+    created_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }

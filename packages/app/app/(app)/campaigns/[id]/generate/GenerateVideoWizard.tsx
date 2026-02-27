@@ -221,7 +221,7 @@ export function GenerateVideoWizard({
               </div>
             )}
 
-            {scenesForSelectedTranscripts.length === 0 && transcriptsWithoutScenes.length === 0 ? (
+            {selectedTranscripts.length === 0 ? (
               <p className="text-sm text-zinc-500">No transcripts selected.</p>
             ) : (
               scenesForSelectedTranscripts.map((scene) => (
@@ -229,6 +229,7 @@ export function GenerateVideoWizard({
                   key={scene.id}
                   scene={{ ...scene, selected_for_video: selectedSceneIds.includes(scene.id) }}
                   canWrite={true}
+                  readOnly={true}
                   onToggle={handleSceneToggle}
                 />
               ))
