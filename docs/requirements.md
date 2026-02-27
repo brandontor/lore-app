@@ -75,7 +75,7 @@ Auth, Campaigns, Member Management.
 
 ---
 
-## Phase 2 — Content Management 🚧 In Progress
+## Phase 2 — Content Management 🚧 Partially Complete
 
 Transcripts, Characters, Locations, World Notes.
 
@@ -97,9 +97,9 @@ Transcripts, Characters, Locations, World Notes.
 | ID | Requirement | Status |
 |----|-------------|--------|
 | Ch-1 | Character roster on Characters tab | ✅ |
-| Ch-2 | Character creation form: name, class, race, level, notes | 🚧 (name/class/race/level done; notes field not in schema yet) |
-| Ch-3 | Character appearance description (physical description, notable features) | ❌ |
-| Ch-4 | Character portrait image upload (stored in Supabase Storage) | ❌ |
+| Ch-2 | Character creation form: name, class, race, level, backstory | ✅ |
+| Ch-3 | Character appearance description (physical description, notable features) | ✅ |
+| Ch-4 | Character portrait image upload (stored in Supabase Storage) | ✅ |
 | Ch-5 | Character linked to a player (`player_id` FK to profiles) | ✅ |
 | Ch-6 | Character edit and delete | ✅ |
 
@@ -127,7 +127,7 @@ Transcripts, Characters, Locations, World Notes.
 
 ---
 
-## Phase 3 — Video Generation ❌ Not Started
+## Phase 3 — Video Generation 🚧 In Progress
 
 Video wizard, AI backend, video player, session context tagging.
 
@@ -135,25 +135,25 @@ Video wizard, AI backend, video player, session context tagging.
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| V-1 | Owner initiates generation via 3-step wizard | 🚧 (UI only) |
-| V-2 | Step 1 — Select one or more processed transcripts | 🚧 (UI only) |
-| V-3 | Step 2 — Choose visual style (Cinematic Fantasy, Animated Storybook, Dark & Gritty, Watercolor Illustration) | 🚧 (UI only) |
-| V-4 | Step 3 — Review & Generate: preview selection then submit | 🚧 (UI only) |
+| V-1 | Owner initiates generation via 4-step wizard | 🚧 (wizard wired to real data; AI backend not implemented) |
+| V-2 | Step 1 — Select one or more processed transcripts | 🚧 (real transcripts fetched from DB; selection UI complete) |
+| V-3 | Step 3 — Choose visual style (Cinematic, Anime, Painterly, Dark Fantasy) | 🚧 (style selection UI complete; not wired to generation) |
+| V-4 | Step 4 — Review & Generate: preview transcripts + scenes + party characters then submit | 🚧 (review panel shows real data; generate button disabled) |
 | V-5 | AI generation backend: LLM + video rendering pipeline | ❌ |
-| V-6 | Generation scoped to campaign owner | 🚧 |
+| V-6 | Generation scoped to campaign write-access users | ✅ |
 
 ### Context Inputs
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| V-7 | AI scene extraction: LLM reads transcript content + campaign setting + character roster and outputs structured scene records (title, visual description, mood, start/end timestamps, confidence score) stored in a new `transcript_scenes` table | ❌ |
-| V-8 | Scene extraction triggered on-demand from the transcript detail page ("Extract Scenes" button); DM can review, deselect, or re-run extraction | ❌ |
+| V-7 | AI scene extraction: LLM reads transcript content + campaign setting + character roster and outputs structured scene records (title, visual description, mood, start/end timestamps, confidence score) stored in a new `transcript_scenes` table | ✅ |
+| V-8 | Scene extraction triggered on-demand from the transcript detail page ("Extract Scenes" button); DM can review, deselect, or re-run extraction | ✅ |
 | V-9 | Campaign mood board: upload reference images that define the visual aesthetic | ❌ |
 | V-10 | Generation uses character portraits, NPC images, and location art as visual context | ❌ |
-| V-11 | Video generation wizard gains a "Select Scenes" step between transcript selection and style selection; shows AI-extracted scene cards, DM picks which scenes to include | ❌ |
-| V-12 | Scene cards display: title, mood badge (tense / triumphant / mysterious / dramatic / comedic / melancholic), timestamp range, first 2-3 dialogue lines, and confidence indicator | ❌ |
+| V-11 | Video generation wizard gains a "Select Scenes" step (Step 2) between transcript selection and style selection; shows AI-extracted scene cards, DM picks which scenes to include | ✅ |
+| V-12 | Scene cards display: title, mood badge (tense / triumphant / mysterious / dramatic / comedic / melancholic), timestamp range, first 2-3 dialogue lines, and confidence indicator | ✅ |
 | V-13 | Video generation produces one short clip per selected scene (targeting 5-20 seconds each), not a single long video | ❌ |
-| V-14 | New DB table `transcript_scenes`: id, transcript_id, campaign_id, title, description (visual prompt), mood, start/end timestamps, raw speaker lines, confidence_score, selected_for_video | ❌ |
+| V-14 | New DB table `transcript_scenes`: id, transcript_id, campaign_id, title, description (visual prompt), mood, start/end timestamps, raw speaker lines, confidence_score, selected_for_video | ✅ |
 
 ### Videos
 
