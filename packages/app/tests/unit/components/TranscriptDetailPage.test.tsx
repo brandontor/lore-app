@@ -6,6 +6,7 @@ import { buildTranscript, buildCampaignWithRole, CAMPAIGN_ID } from '../helpers/
 vi.mock('@/lib/queries/transcripts', () => ({
   getTranscriptById: vi.fn(),
   getSpeakerMappingsByCampaign: vi.fn(),
+  getScenesByTranscript: vi.fn(),
 }));
 vi.mock('@/lib/queries/campaigns', () => ({
   getCampaignById: vi.fn(),
@@ -19,9 +20,11 @@ vi.mock('@/lib/actions/transcripts', () => ({
   createTranscript: vi.fn(),
   updateTranscript: vi.fn(),
   upsertSpeakerMapping: vi.fn(),
+  extractScenes: vi.fn(),
+  toggleSceneSelection: vi.fn(),
 }));
 
-import { getTranscriptById, getSpeakerMappingsByCampaign } from '@/lib/queries/transcripts';
+import { getTranscriptById, getSpeakerMappingsByCampaign, getScenesByTranscript } from '@/lib/queries/transcripts';
 import { getCampaignById } from '@/lib/queries/campaigns';
 import { getCharactersByCampaign } from '@/lib/queries/characters';
 import TranscriptDetailPage from '@/app/(app)/transcripts/[id]/page';
@@ -30,6 +33,7 @@ const mockGetTranscriptById = vi.mocked(getTranscriptById);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 const mockGetSpeakerMappingsByCampaign = vi.mocked(getSpeakerMappingsByCampaign);
 const mockGetCharactersByCampaign = vi.mocked(getCharactersByCampaign);
+const mockGetScenesByTranscript = vi.mocked(getScenesByTranscript);
 
 const CAMPAIGN = buildCampaignWithRole({ id: CAMPAIGN_ID, name: 'Curse of Strahd' });
 
@@ -38,6 +42,7 @@ beforeEach(() => {
   mockGetCampaignById.mockResolvedValue(CAMPAIGN);
   mockGetSpeakerMappingsByCampaign.mockResolvedValue([]);
   mockGetCharactersByCampaign.mockResolvedValue([]);
+  mockGetScenesByTranscript.mockResolvedValue([]);
 });
 
 async function renderPage(id = 'transcript-1') {

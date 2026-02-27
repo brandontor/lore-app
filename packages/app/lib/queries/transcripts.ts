@@ -1,5 +1,5 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server';
-import type { Transcript, SpeakerCharacterMapping } from '@lore/shared';
+import type { Transcript, SpeakerCharacterMapping, TranscriptScene } from '@lore/shared';
 
 export async function getTranscriptsByCampaign(campaignId: string): Promise<Transcript[]> {
   const adminClient = createAdminClient();
@@ -66,4 +66,33 @@ export async function getSpeakerMappingsByCampaign(campaignId: string): Promise<
 
   if (error || !data) return [];
   return data as SpeakerCharacterMapping[];
+}
+
+export async function getScenesByTranscript(transcriptId: string): Promise<TranscriptScene[]> {
+  const adminClient = createAdminClient();
+
+  const { data, error } = await adminClient
+    .from('transcript_scenes')
+    .select('*')
+    .eq('transcript_id', transcriptId)
+    .order('start_timestamp', { ascending: true, nullsFirst: true });
+
+  if (error || !data) return [];
+  return data as TranscriptScene[];
+}
+
+export async function getAllScenesByTranscripts(transcriptIds: string[]): Promise<TranscriptScene[]> {
+  if (transcriptIds.length === 0) return [];
+
+  const adminClient = createAdminClient();
+
+  const { data, error } = await adminClient
+    .from('transcript_scenes')
+    .select('*')
+    .in('transcript_id', transcriptIds)
+    .order('transcript_id', { ascending: true })
+    .order('start_timestamp', { ascending: true, nullsFirst: true });
+
+  if (error || !data) return [];
+  return data as TranscriptScene[];
 }

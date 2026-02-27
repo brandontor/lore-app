@@ -4,12 +4,14 @@ import { ChevronLeft, Sword, Calendar, Clock, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { getTranscriptById, getSpeakerMappingsByCampaign } from "@/lib/queries/transcripts";
+import { getTranscriptById, getSpeakerMappingsByCampaign, getScenesByTranscript } from "@/lib/queries/transcripts";
 import { getCampaignById } from "@/lib/queries/campaigns";
 import { getCharactersByCampaign } from "@/lib/queries/characters";
 import { SpeakerMappingPanel } from "@/components/transcripts/SpeakerMappingPanel";
 import { DeleteTranscriptButton } from "@/components/transcripts/DeleteTranscriptButton";
 import { GenerateSummaryButton } from "@/components/transcripts/GenerateSummaryButton";
+import { ExtractScenesButton } from "@/components/transcripts/ExtractScenesButton";
+import { SceneList } from "@/components/transcripts/SceneList";
 import type { TranscriptStatus } from "@lore/shared";
 
 function formatDuration(minutes: number | null): string {
@@ -38,10 +40,11 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
   const transcript = await getTranscriptById(id);
   if (!transcript) notFound();
 
-  const [campaign, characters, speakerMappings] = await Promise.all([
+  const [campaign, characters, speakerMappings, scenes] = await Promise.all([
     getCampaignById(transcript.campaign_id),
     getCharactersByCampaign(transcript.campaign_id),
     getSpeakerMappingsByCampaign(transcript.campaign_id),
+    getScenesByTranscript(id),
   ]);
 
   if (!campaign) notFound();
@@ -174,6 +177,36 @@ export default async function TranscriptViewerPage({ params }: { params: Promise
                 <GenerateSummaryButton
                   transcriptId={id}
                   hasSummary={!!transcript.summary}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Extracted Scenes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Extracted Scenes</span>
+                {scenes.length > 0 && (
+                  <span className="text-xs font-normal text-zinc-500">
+                    {scenes.filter(s => s.selected_for_video).length}/{scenes.length} selected
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {scenes.length === 0 ? (
+                <p className="text-xs text-zinc-500">
+                  No scenes extracted yet. Extract scenes to identify key moments for video generation.
+                </p>
+              ) : (
+                <SceneList initialScenes={scenes} canWrite={canWrite} />
+              )}
+              {canWrite && (
+                <ExtractScenesButton
+                  transcriptId={id}
+                  campaignId={transcript.campaign_id}
+                  hasScenes={scenes.length > 0}
                 />
               )}
             </CardContent>
