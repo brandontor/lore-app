@@ -27,10 +27,11 @@ export function CharacterForm({
     <form action={formAction} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="char-name" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Name <span className="text-red-500">*</span>
           </label>
           <input
+            id="char-name"
             name="name"
             type="text"
             required
@@ -41,10 +42,11 @@ export function CharacterForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="char-class" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Class
           </label>
           <input
+            id="char-class"
             name="class"
             type="text"
             defaultValue={defaultValues.class ?? ''}
@@ -54,10 +56,11 @@ export function CharacterForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="char-race" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Race
           </label>
           <input
+            id="char-race"
             name="race"
             type="text"
             defaultValue={defaultValues.race ?? ''}
@@ -67,10 +70,11 @@ export function CharacterForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label htmlFor="char-level" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Level
           </label>
           <input
+            id="char-level"
             name="level"
             type="number"
             min={1}
@@ -82,10 +86,11 @@ export function CharacterForm({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label htmlFor="char-appearance" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Appearance
         </label>
         <textarea
+          id="char-appearance"
           name="appearance"
           rows={3}
           defaultValue={defaultValues.appearance ?? ''}
@@ -95,10 +100,11 @@ export function CharacterForm({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label htmlFor="char-backstory" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Backstory
         </label>
         <textarea
+          id="char-backstory"
           name="backstory"
           rows={4}
           defaultValue={defaultValues.backstory ?? ''}

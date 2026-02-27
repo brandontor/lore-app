@@ -10,6 +10,8 @@ import { createCharacter, updateCharacter, deleteCharacter, updateCharacterPortr
 import { createClient } from '@/lib/supabase/client';
 import type { Character } from '@lore/shared';
 
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
 interface CharactersTabProps {
   campaignId: string;
   characters: Character[];
@@ -45,12 +47,20 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
   function handleDelete(characterId: string, characterName: string) {
     if (!window.confirm(`Delete ${characterName}? This cannot be undone.`)) return;
     startTransition(async () => {
-      await deleteCharacter(characterId);
-      setCharacters((prev) => prev.filter((c) => c.id !== characterId));
+      const result = await deleteCharacter(characterId);
+      if (!result?.error) {
+        delete fileInputRefs.current[characterId];
+        setCharacters((prev) => prev.filter((c) => c.id !== characterId));
+      }
     });
   }
 
   async function handlePortraitUpload(char: Character, file: File) {
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      setUploadError({ id: char.id, message: 'Only JPEG, PNG, WebP, and GIF images are allowed' });
+      return;
+    }
+
     if (file.size > 2 * 1024 * 1024) {
       setUploadError({ id: char.id, message: 'Image must be 2MB or smaller' });
       return;
@@ -60,14 +70,32 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
     setUploadError(null);
 
     const supabase = createClient();
-    const path = `${char.id}/${Date.now()}-${file.name}`;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setUploadError({ id: char.id, message: 'Your session has expired — please refresh and try again.' });
+      setUploadingId(null);
+      return;
+    }
+
+    // Path: {userId}/{charId}/portrait — deterministic, no orphaned files, matches storage RLS
+    const path = `${user.id}/${char.id}/portrait`;
 
     const { error: uploadErr } = await supabase.storage
       .from('character-portraits')
       .upload(path, file, { upsert: true });
 
     if (uploadErr) {
-      setUploadError({ id: char.id, message: uploadErr.message });
+      const isAuthError =
+        uploadErr.message.toLowerCase().includes('unauthorized') ||
+        uploadErr.message.toLowerCase().includes('jwt') ||
+        (uploadErr as { status?: number }).status === 401;
+      setUploadError({
+        id: char.id,
+        message: isAuthError
+          ? 'Your session has expired — please refresh and try again.'
+          : uploadErr.message,
+      });
       setUploadingId(null);
       return;
     }
@@ -146,6 +174,7 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                             <img
                               src={char.portrait_url}
                               alt={char.name}
+                              loading="lazy"
                               className="h-10 w-10 rounded-full object-cover"
                             />
                           ) : (

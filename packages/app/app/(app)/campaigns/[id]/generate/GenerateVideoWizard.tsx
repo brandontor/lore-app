@@ -221,7 +221,7 @@ export function GenerateVideoWizard({ campaignId, transcripts, characters }: { c
                     {characters.map((c) => (
                       <li key={c.id} className="flex items-center gap-3">
                         {c.portrait_url ? (
-                          <img src={c.portrait_url} alt={c.name} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                          <img src={c.portrait_url} alt={c.name} loading="lazy" className="h-8 w-8 shrink-0 rounded-full object-cover" />
                         ) : (
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
                             <User className="h-4 w-4 text-zinc-400" />
@@ -230,7 +230,9 @@ export function GenerateVideoWizard({ campaignId, transcripts, characters }: { c
                         <div>
                           <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{c.name}</span>
                           {(c.race || c.class) && (
-                            <span className="text-xs text-zinc-400"> — Lvl {c.level} {c.race} {c.class}</span>
+                            <span className="text-xs text-zinc-400">
+                              {' — '}Lvl {c.level}{c.race ? ` ${c.race}` : ''}{c.class ? ` ${c.class}` : ''}
+                            </span>
                           )}
                           {c.appearance && (
                             <p className="line-clamp-1 text-xs text-zinc-400">{c.appearance}</p>
