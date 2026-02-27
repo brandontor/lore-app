@@ -105,6 +105,23 @@ export interface SpeakerCharacterMapping {
   updated_at: string;
 }
 
+export type SceneMood = 'tense' | 'triumphant' | 'mysterious' | 'dramatic' | 'comedic' | 'melancholic';
+
+export interface TranscriptScene {
+  id: string;
+  transcript_id: string;
+  campaign_id: string;
+  title: string;
+  description: string;
+  mood: SceneMood;
+  start_timestamp: string | null;
+  end_timestamp: string | null;
+  raw_speaker_lines: string[];
+  confidence_score: number;
+  selected_for_video: boolean;
+  created_at: string;
+}
+
 export interface ActionResult<T = undefined> {
   error?: string;
   data?: T;

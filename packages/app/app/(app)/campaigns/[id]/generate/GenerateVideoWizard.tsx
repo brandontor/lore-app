@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ScrollText, Palette, Wand2, Check, Lock, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScrollText, Clapperboard, Palette, Wand2, Check, Lock, User, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import type { Transcript, Character } from "@lore/shared";
+import { SceneCard } from "@/components/transcripts/SceneCard";
+import type { Transcript, Character, TranscriptScene } from "@lore/shared";
 
 const steps = [
   { id: 1, label: "Select Transcripts" },
-  { id: 2, label: "Style & Tone" },
-  { id: 3, label: "Review & Generate" },
+  { id: 2, label: "Select Scenes" },
+  { id: 3, label: "Style & Tone" },
+  { id: 4, label: "Review & Generate" },
 ];
 
 const styles = [
@@ -31,9 +33,20 @@ function formatDuration(minutes: number | null): string {
   return `${h}h ${m}m`;
 }
 
-export function GenerateVideoWizard({ campaignId, transcripts, characters }: { campaignId: string; transcripts: Transcript[]; characters: Character[] }) {
+export function GenerateVideoWizard({
+  campaignId,
+  transcripts,
+  characters,
+  allScenes,
+}: {
+  campaignId: string;
+  transcripts: Transcript[];
+  characters: Character[];
+  allScenes: TranscriptScene[];
+}) {
   const [step, setStep] = useState(1);
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
+  const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
 
   function toggleTranscript(id: string) {
@@ -41,6 +54,30 @@ export function GenerateVideoWizard({ campaignId, transcripts, characters }: { c
       prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
     );
   }
+
+  function handleSceneToggle(id: string, selected: boolean) {
+    setSelectedSceneIds((prev) =>
+      selected ? [...prev.filter((s) => s !== id), id] : prev.filter((s) => s !== id)
+    );
+  }
+
+  function goToStep2() {
+    // Pre-populate selectedSceneIds with scenes selected_for_video for the chosen transcripts
+    const relevantScenes = allScenes.filter((s) => selectedTranscripts.includes(s.transcript_id));
+    const preSelected = relevantScenes.filter((s) => s.selected_for_video).map((s) => s.id);
+    setSelectedSceneIds(preSelected);
+    setStep(2);
+  }
+
+  // Scenes for the transcripts currently selected
+  const scenesForSelectedTranscripts = allScenes.filter((s) =>
+    selectedTranscripts.includes(s.transcript_id)
+  );
+
+  // Transcripts that have no scenes extracted
+  const transcriptsWithoutScenes = selectedTranscripts.filter(
+    (tid) => !allScenes.some((s) => s.transcript_id === tid)
+  );
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -57,7 +94,7 @@ export function GenerateVideoWizard({ campaignId, transcripts, characters }: { c
       </div>
 
       {/* Stepper */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {steps.map((s, i) => (
           <div key={s.id} className="flex items-center gap-2">
             <div className="flex items-center gap-2">
@@ -144,8 +181,65 @@ export function GenerateVideoWizard({ campaignId, transcripts, characters }: { c
         </Card>
       )}
 
-      {/* Step 2: Style & Tone */}
+      {/* Step 2: Select Scenes */}
       {step === 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clapperboard className="h-5 w-5" />
+              Select Scenes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-zinc-500">
+              Toggle which scenes to include in your video. Scenes are extracted from transcripts on the transcript detail page.
+            </p>
+
+            {/* Warning for transcripts missing scenes */}
+            {transcriptsWithoutScenes.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 dark:border-amber-700 dark:bg-amber-950/30">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="text-sm text-amber-700 dark:text-amber-400">
+                  <p className="font-medium">Some transcripts have no extracted scenes.</p>
+                  <p className="mt-0.5 text-xs">
+                    Open the transcript detail page and click &quot;Extract Scenes&quot;, then return here to include them.
+                  </p>
+                  <ul className="mt-1 list-disc pl-4 text-xs">
+                    {transcriptsWithoutScenes.map((tid) => {
+                      const t = transcripts.find((tr) => tr.id === tid);
+                      if (!t) return null;
+                      return (
+                        <li key={tid}>
+                          <Link href={`/transcripts/${tid}`} className="underline hover:no-underline">
+                            {t.title || (t.session_number !== null ? `Session ${t.session_number}` : 'Untitled')}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {selectedTranscripts.length === 0 ? (
+              <p className="text-sm text-zinc-500">No transcripts selected.</p>
+            ) : (
+              scenesForSelectedTranscripts.map((scene) => (
+                <SceneCard
+                  key={scene.id}
+                  scene={{ ...scene, selected_for_video: selectedSceneIds.includes(scene.id) }}
+                  canWrite={true}
+                  readOnly={true}
+                  onToggle={handleSceneToggle}
+                />
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 3: Style & Tone */}
+      {step === 3 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -186,8 +280,8 @@ export function GenerateVideoWizard({ campaignId, transcripts, characters }: { c
         </Card>
       )}
 
-      {/* Step 3: Review & Generate */}
-      {step === 3 && (
+      {/* Step 4: Review & Generate */}
+      {step === 4 && (
         <div className="space-y-4">
           <Card>
             <CardHeader><CardTitle>Review</CardTitle></CardHeader>
@@ -202,6 +296,19 @@ export function GenerateVideoWizard({ campaignId, transcripts, characters }: { c
                           <Badge key={t.id}>
                             {t.title || (t.session_number !== null ? `Session ${t.session_number}` : "Untitled")}
                           </Badge>
+                        ))
+                    : <span className="text-sm text-zinc-400">None selected</span>
+                  }
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-medium text-zinc-500">Selected Scenes</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedSceneIds.length > 0
+                    ? allScenes
+                        .filter((s) => selectedSceneIds.includes(s.id))
+                        .map((s) => (
+                          <Badge key={s.id} variant="outline">{s.title}</Badge>
                         ))
                     : <span className="text-sm text-zinc-400">None selected</span>
                   }
@@ -275,8 +382,11 @@ export function GenerateVideoWizard({ campaignId, transcripts, characters }: { c
           <ChevronLeft className="h-4 w-4" />
           Back
         </Button>
-        {step < 3 ? (
-          <Button onClick={() => setStep((s) => s + 1)}>
+        {step < 4 ? (
+          <Button
+            onClick={step === 1 ? goToStep2 : () => setStep((s) => s + 1)}
+            disabled={step === 1 && selectedTranscripts.length === 0}
+          >
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>

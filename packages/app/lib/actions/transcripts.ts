@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import type { ActionResult, TranscriptStatus } from '@lore/shared';
+import type { ActionResult, TranscriptStatus, SceneMood } from '@lore/shared';
 import OpenAI from 'openai';
 
 const VALID_STATUSES: TranscriptStatus[] = ['pending', 'processing', 'processed', 'error'];
@@ -226,6 +226,160 @@ ${transcript.content.slice(0, 12000)}`;
   if (updateError) return { error: updateError.message };
 
   revalidatePath(`/transcripts/${transcriptId}`);
+  return {};
+}
+
+const VALID_MOODS: SceneMood[] = ['tense', 'triumphant', 'mysterious', 'dramatic', 'comedic', 'melancholic'];
+
+export async function extractScenes(transcriptId: string, campaignId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const adminClient = createAdminClient();
+
+  const hasWrite = await verifyWriteAccess(adminClient, user.id, campaignId);
+  if (!hasWrite) return { error: 'Access denied' };
+
+  const [
+    { data: transcript },
+    { data: campaign },
+    { data: characters },
+  ] = await Promise.all([
+    adminClient.from('transcripts').select('content, title, session_number').eq('id', transcriptId).eq('campaign_id', campaignId).single(),
+    adminClient.from('campaigns').select('name, setting, system').eq('id', campaignId).single(),
+    adminClient.from('characters').select('name, class, race, level').eq('campaign_id', campaignId),
+  ]);
+
+  if (!transcript) return { error: 'Transcript not found' };
+  if (!transcript.content?.trim()) return { error: 'Transcript has no content to analyse' };
+  if (!campaign) return { error: 'Campaign not found' };
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return { error: 'OpenAI API key not configured' };
+
+  const openai = new OpenAI({ apiKey });
+
+  const characterRoster = (characters ?? [])
+    .map((c) => `${c.name} (Lvl ${c.level} ${c.race ?? ''} ${c.class ?? ''}`.trim() + ')')
+    .join(', ');
+
+  const systemPrompt = `You are a D&D campaign cinematographer. Analyse session transcripts and identify key scenes suitable for cinematic video generation.
+
+Campaign: "${campaign.name}" (${campaign.system})${campaign.setting ? `\nSetting: ${campaign.setting}` : ''}${characterRoster ? `\nParty: ${characterRoster}` : ''}
+
+Identify 3–8 cinematically distinct scenes from the transcript. Each scene should be a self-contained dramatic moment worth visualising.
+
+Return a JSON object with a single key "scenes" containing an array of scene objects. Each scene must have:
+- title: string (short, evocative scene title, max 60 chars)
+- description: string (2–3 sentences describing what happens visually, suitable as an image/video generation prompt)
+- mood: one of exactly: "tense", "triumphant", "mysterious", "dramatic", "comedic", "melancholic"
+- start_timestamp: string | null (timestamp from transcript if available, e.g. "00:12:34", else null)
+- end_timestamp: string | null
+- raw_speaker_lines: string[] (3–6 actual lines of dialogue from the transcript that define this scene)
+- confidence_score: number (0.0–1.0, how cinematically distinct and clear this scene is)`;
+
+  const sessionLabel = transcript.title || (transcript.session_number !== null ? `Session ${transcript.session_number}` : 'this session');
+  const userPrompt = `Extract cinematic scenes from the transcript for "${sessionLabel}":\n\n${transcript.content.slice(0, 14000)}`;
+
+  let rawContent: string;
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.4,
+      max_tokens: 2000,
+    });
+    rawContent = response.choices[0]?.message?.content ?? '';
+    if (!rawContent.trim()) return { error: 'OpenAI returned an empty response' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return { error: `OpenAI error: ${message}` };
+  }
+
+  let parsed: { scenes?: unknown[] };
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch {
+    return { error: 'Failed to parse scene data from OpenAI response' };
+  }
+
+  if (!Array.isArray(parsed.scenes)) {
+    return { error: 'Unexpected response format from OpenAI' };
+  }
+
+  const rows = parsed.scenes
+    .filter((s): s is Record<string, unknown> => typeof s === 'object' && s !== null)
+    .map((s) => {
+      const mood = VALID_MOODS.includes(s.mood as SceneMood) ? (s.mood as SceneMood) : 'dramatic';
+      const confidence = typeof s.confidence_score === 'number'
+        ? Math.max(0, Math.min(1, s.confidence_score))
+        : 0.5;
+      return {
+        transcript_id: transcriptId,
+        campaign_id: campaignId,
+        title: String(s.title ?? '').slice(0, 60) || 'Untitled Scene',
+        description: String(s.description ?? ''),
+        mood,
+        start_timestamp: typeof s.start_timestamp === 'string' ? s.start_timestamp : null,
+        end_timestamp: typeof s.end_timestamp === 'string' ? s.end_timestamp : null,
+        raw_speaker_lines: Array.isArray(s.raw_speaker_lines)
+          ? (s.raw_speaker_lines as unknown[]).filter((l) => typeof l === 'string').slice(0, 10) as string[]
+          : [],
+        confidence_score: confidence,
+        selected_for_video: true,
+      };
+    });
+
+  if (rows.length === 0) return { error: 'No scenes could be extracted from this transcript' };
+
+  // Replace existing scenes for this transcript
+  const { error: deleteError } = await adminClient
+    .from('transcript_scenes')
+    .delete()
+    .eq('transcript_id', transcriptId);
+
+  if (deleteError) return { error: deleteError.message };
+
+  const { error: insertError } = await adminClient
+    .from('transcript_scenes')
+    .insert(rows);
+
+  if (insertError) return { error: insertError.message };
+
+  revalidatePath(`/transcripts/${transcriptId}`);
+  return {};
+}
+
+export async function toggleSceneSelection(sceneId: string, selected: boolean): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const adminClient = createAdminClient();
+
+  const { data: scene } = await adminClient
+    .from('transcript_scenes')
+    .select('campaign_id')
+    .eq('id', sceneId)
+    .single();
+
+  if (!scene) return { error: 'Scene not found' };
+
+  const hasWrite = await verifyWriteAccess(adminClient, user.id, scene.campaign_id);
+  if (!hasWrite) return { error: 'Access denied' };
+
+  const { error } = await adminClient
+    .from('transcript_scenes')
+    .update({ selected_for_video: selected })
+    .eq('id', sceneId);
+
+  if (error) return { error: error.message };
+
   return {};
 }
 

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getCampaignById } from '@/lib/queries/campaigns';
-import { getTranscriptsByCampaign } from '@/lib/queries/transcripts';
+import { getTranscriptsByCampaign, getAllScenesByTranscripts } from '@/lib/queries/transcripts';
 import { getCharactersByCampaign } from '@/lib/queries/characters';
 import { GenerateVideoWizard } from './GenerateVideoWizard';
 
@@ -22,5 +22,14 @@ export default async function GenerateVideoPage({
     getCharactersByCampaign(id),
   ]);
 
-  return <GenerateVideoWizard campaignId={id} transcripts={transcripts} characters={characters} />;
+  const allScenes = await getAllScenesByTranscripts(transcripts.map((t) => t.id));
+
+  return (
+    <GenerateVideoWizard
+      campaignId={id}
+      transcripts={transcripts}
+      characters={characters}
+      allScenes={allScenes}
+    />
+  );
 }
