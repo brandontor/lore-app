@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Plus, Pencil, Trash2 } from 'lucide-react';
+import { User, Plus, Pencil, Trash2, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CharacterForm } from './CharacterForm';
-import { createCharacter, updateCharacter, deleteCharacter } from '@/lib/actions/characters';
+import { createCharacter, updateCharacter, deleteCharacter, updateCharacterPortrait } from '@/lib/actions/characters';
+import { createClient } from '@/lib/supabase/client';
 import type { Character } from '@lore/shared';
 
 interface CharactersTabProps {
@@ -20,7 +21,10 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
   const [characters, setCharacters] = useState(initial);
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<{ id: string; message: string } | null>(null);
   const [, startTransition] = useTransition();
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   async function handleCreate(formData: FormData) {
     const result = await createCharacter(campaignId, formData);
@@ -44,6 +48,41 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
       await deleteCharacter(characterId);
       setCharacters((prev) => prev.filter((c) => c.id !== characterId));
     });
+  }
+
+  async function handlePortraitUpload(char: Character, file: File) {
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadError({ id: char.id, message: 'Image must be 2MB or smaller' });
+      return;
+    }
+
+    setUploadingId(char.id);
+    setUploadError(null);
+
+    const supabase = createClient();
+    const path = `${char.id}/${Date.now()}-${file.name}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from('character-portraits')
+      .upload(path, file, { upsert: true });
+
+    if (uploadErr) {
+      setUploadError({ id: char.id, message: uploadErr.message });
+      setUploadingId(null);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('character-portraits')
+      .getPublicUrl(path);
+
+    const result = await updateCharacterPortrait(char.id, publicUrl);
+    if (result?.error) {
+      setUploadError({ id: char.id, message: result.error });
+    } else {
+      router.refresh();
+    }
+    setUploadingId(null);
   }
 
   return (
@@ -87,15 +126,55 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                 {editingId === char.id ? (
                   <CharacterForm
                     action={(fd) => handleUpdate(char.id, fd)}
-                    defaultValues={{ name: char.name, class: char.class ?? undefined, race: char.race ?? undefined, level: char.level }}
+                    defaultValues={{
+                      name: char.name,
+                      class: char.class ?? undefined,
+                      race: char.race ?? undefined,
+                      level: char.level,
+                      appearance: char.appearance ?? undefined,
+                      backstory: char.backstory ?? undefined,
+                    }}
                     submitLabel="Save"
                     onCancel={() => setEditingId(null)}
                   />
                 ) : (
                   <>
                     <div className="mb-3 flex items-start justify-between">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                        <User className="h-5 w-5 text-zinc-500" />
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                          {char.portrait_url ? (
+                            <img
+                              src={char.portrait_url}
+                              alt={char.name}
+                              className="h-10 w-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <User className="h-5 w-5 text-zinc-500" />
+                          )}
+                        </div>
+                        {canWrite && (
+                          <>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              ref={(el) => { fileInputRefs.current[char.id] = el; }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handlePortraitUpload(char, file);
+                                e.target.value = '';
+                              }}
+                            />
+                            <button
+                              onClick={() => fileInputRefs.current[char.id]?.click()}
+                              disabled={uploadingId === char.id}
+                              className="flex items-center gap-1 text-xs text-zinc-400 transition-colors hover:text-violet-500 disabled:opacity-50"
+                            >
+                              <Upload className="h-3 w-3" />
+                              {uploadingId === char.id ? 'Uploading…' : 'Portrait'}
+                            </button>
+                          </>
+                        )}
                       </div>
                       {canWrite && (
                         <div className="flex items-center gap-1">
@@ -122,6 +201,12 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                       {char.race ? ` ${char.race}` : ''}
                       {char.class ? ` ${char.class}` : ''}
                     </p>
+                    {char.appearance && (
+                      <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{char.appearance}</p>
+                    )}
+                    {uploadError?.id === char.id && (
+                      <p className="mt-1 text-xs text-red-400">{uploadError.message}</p>
+                    )}
                   </>
                 )}
               </CardContent>

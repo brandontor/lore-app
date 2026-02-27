@@ -47,6 +47,8 @@ export async function createCharacter(
       class: (formData.get('class') as string)?.trim() || null,
       race: (formData.get('race') as string)?.trim() || null,
       level: parseLevel(formData.get('level') as string),
+      appearance: (formData.get('appearance') as string)?.trim() || null,
+      backstory: (formData.get('backstory') as string)?.trim() || null,
     });
 
   if (error) return { error: error.message };
@@ -86,7 +88,41 @@ export async function updateCharacter(
       class: (formData.get('class') as string)?.trim() || null,
       race: (formData.get('race') as string)?.trim() || null,
       level: parseLevel(formData.get('level') as string),
+      appearance: (formData.get('appearance') as string)?.trim() || null,
+      backstory: (formData.get('backstory') as string)?.trim() || null,
     })
+    .eq('id', characterId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/campaigns/${character.campaign_id}`);
+  return {};
+}
+
+export async function updateCharacterPortrait(
+  characterId: string,
+  portraitUrl: string
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const adminClient = createAdminClient();
+
+  const { data: character } = await adminClient
+    .from('characters')
+    .select('campaign_id')
+    .eq('id', characterId)
+    .single();
+
+  if (!character) return { error: 'Character not found' };
+
+  const hasWrite = await verifyWriteAccess(adminClient, user.id, character.campaign_id);
+  if (!hasWrite) return { error: 'Access denied' };
+
+  const { error } = await adminClient
+    .from('characters')
+    .update({ portrait_url: portraitUrl })
     .eq('id', characterId);
 
   if (error) return { error: error.message };

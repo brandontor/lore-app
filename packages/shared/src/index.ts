@@ -75,6 +75,9 @@ export interface Character {
   class: string | null;
   race: string | null;
   level: number;
+  appearance: string | null;
+  backstory: string | null;
+  portrait_url: string | null;
   player_id: string | null;
   created_at: string;
   updated_at: string;

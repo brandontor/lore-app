@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ScrollText, Palette, Wand2, Check, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScrollText, Palette, Wand2, Check, Lock, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import type { Transcript } from "@lore/shared";
+import type { Transcript, Character } from "@lore/shared";
 
 const steps = [
   { id: 1, label: "Select Transcripts" },
@@ -31,7 +31,7 @@ function formatDuration(minutes: number | null): string {
   return `${h}h ${m}m`;
 }
 
-export function GenerateVideoWizard({ campaignId, transcripts }: { campaignId: string; transcripts: Transcript[] }) {
+export function GenerateVideoWizard({ campaignId, transcripts, characters }: { campaignId: string; transcripts: Transcript[]; characters: Character[] }) {
   const [step, setStep] = useState(1);
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -213,6 +213,35 @@ export function GenerateVideoWizard({ campaignId, transcripts }: { campaignId: s
                   ? <Badge variant="outline">{styles.find((s) => s.id === selectedStyle)?.label}</Badge>
                   : <span className="text-sm text-zinc-400">None selected</span>
                 }
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-medium text-zinc-500">Party Characters</p>
+                {characters.length > 0 ? (
+                  <ul className="space-y-2">
+                    {characters.map((c) => (
+                      <li key={c.id} className="flex items-center gap-3">
+                        {c.portrait_url ? (
+                          <img src={c.portrait_url} alt={c.name} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
+                            <User className="h-4 w-4 text-zinc-400" />
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{c.name}</span>
+                          {(c.race || c.class) && (
+                            <span className="text-xs text-zinc-400"> — Lvl {c.level} {c.race} {c.class}</span>
+                          )}
+                          {c.appearance && (
+                            <p className="line-clamp-1 text-xs text-zinc-400">{c.appearance}</p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="text-sm text-zinc-400">No characters added to this campaign</span>
+                )}
               </div>
             </CardContent>
           </Card>

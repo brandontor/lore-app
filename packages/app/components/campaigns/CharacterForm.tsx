@@ -5,7 +5,7 @@ import type { Character } from '@lore/shared';
 
 interface CharacterFormProps {
   action: (formData: FormData) => Promise<{ error?: string } | undefined>;
-  defaultValues?: Partial<Pick<Character, 'name' | 'class' | 'race' | 'level'>>;
+  defaultValues?: Partial<Pick<Character, 'name' | 'class' | 'race' | 'level' | 'appearance' | 'backstory'>>;
   submitLabel?: string;
   onCancel?: () => void;
 }
@@ -79,6 +79,32 @@ export function CharacterForm({
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Appearance
+        </label>
+        <textarea
+          name="appearance"
+          rows={3}
+          defaultValue={defaultValues.appearance ?? ''}
+          placeholder="Tall High Elf with silver robes, cold blue eyes, and a gnarled oak staff"
+          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:placeholder-zinc-500"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Backstory
+        </label>
+        <textarea
+          name="backstory"
+          rows={4}
+          defaultValue={defaultValues.backstory ?? ''}
+          placeholder="Former court mage seeking redemption after a catastrophic mistake…"
+          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:placeholder-zinc-500"
+        />
       </div>
 
       {state?.error && (
