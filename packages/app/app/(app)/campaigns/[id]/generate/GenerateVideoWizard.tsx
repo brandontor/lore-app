@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SceneCard } from "@/components/transcripts/SceneCard";
-import { generateVideo, MAX_SCENES } from "@/lib/actions/videos";
+import { generateVideo } from "@/lib/actions/videos";
+import { MAX_SCENES } from "@/lib/video-constants";
 import type { Transcript, Character, TranscriptScene, VideoStyle } from "@lore/shared";
 
 const steps = [

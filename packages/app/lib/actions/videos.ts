@@ -5,8 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { buildVideoPrompt, submitToFal } from '@/lib/fal';
 import type { ActionResult, VideoStyle } from '@lore/shared';
-
-export const MAX_SCENES = 10;
+import { MAX_SCENES } from '@/lib/video-constants';
 
 export async function generateVideo(
   campaignId: string,

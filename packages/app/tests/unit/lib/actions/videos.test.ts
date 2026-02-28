@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { generateVideo, MAX_SCENES } from '@/lib/actions/videos';
+import { generateVideo } from '@/lib/actions/videos';
+import { MAX_SCENES } from '@/lib/video-constants';
 import { OWNER_ID, CAMPAIGN_ID, SCENE_ID } from '../../helpers/builders';
 
 // ---- Supabase mock ----
