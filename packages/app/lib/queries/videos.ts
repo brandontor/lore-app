@@ -65,9 +65,9 @@ export async function getVideoSourceTranscript(videoId: string): Promise<Transcr
     .eq('id', videoId)
     .single();
 
-  const transcriptId = (
-    link?.transcript_scenes as { transcript_id: string } | null
-  )?.transcript_id;
+  const raw = link?.transcript_scenes;
+  const sceneLink = Array.isArray(raw) ? raw[0] : raw;
+  const transcriptId = (sceneLink as { transcript_id: string } | undefined)?.transcript_id;
   if (!transcriptId) return null;
 
   const { data: transcript } = await adminClient
