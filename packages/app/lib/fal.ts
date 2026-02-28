@@ -92,7 +92,7 @@ Write a single video prompt paragraph. No preamble.`;
 }
 
 export async function submitToFal(prompt: string): Promise<{ requestId: string }> {
-  const handle = await fal.queue.submit('fal-ai/kling-video/v2/standard/text-to-video', {
+  const handle = await fal.queue.submit('fal-ai/kling-video/v1.6/standard/text-to-video', {
     input: {
       prompt,
       duration: CLIP_DURATION,
@@ -106,13 +106,13 @@ export async function getFalStatus(requestId: string): Promise<{
   status: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
   videoUrl?: string;
 }> {
-  const statusResult = await fal.queue.status('fal-ai/kling-video/v2/standard/text-to-video', {
+  const statusResult = await fal.queue.status('fal-ai/kling-video/v1.6/standard/text-to-video', {
     requestId,
     logs: false,
   }) as FalQueueStatus;
 
   if (statusResult.status === 'COMPLETED') {
-    const result = await fal.queue.result('fal-ai/kling-video/v2/standard/text-to-video', {
+    const result = await fal.queue.result('fal-ai/kling-video/v1.6/standard/text-to-video', {
       requestId,
     }) as { data: FalVideoResult };
     return {
