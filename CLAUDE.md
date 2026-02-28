@@ -126,6 +126,6 @@ SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 ```
 
-### Pages Not Yet Wired to Real Data
+### Pages with Incomplete Backends
 
-- `packages/app/app/(app)/campaigns/[id]/generate/page.tsx` — AI video generation (backend not built)
+- `packages/app/app/(app)/campaigns/[id]/generate/page.tsx` — Video wizard UI is wired to real transcripts + characters; the generate action is disabled ("Coming Soon") — AI backend not yet built

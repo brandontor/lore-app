@@ -126,6 +126,8 @@ export function buildVideo(overrides: Partial<Video> = {}): Video {
     status: 'pending',
     storage_path: null,
     duration_seconds: null,
+    fal_request_id: null,
+    scene_id: null,
     requested_by: OWNER_ID,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ScrollText, Clapperboard, Palette, Wand2, Check, Lock, User, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScrollText, Clapperboard, Palette, Wand2, Check, User, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SceneCard } from "@/components/transcripts/SceneCard";
-import type { Transcript, Character, TranscriptScene } from "@lore/shared";
+import { generateVideo, MAX_SCENES } from "@/lib/actions/videos";
+import type { Transcript, Character, TranscriptScene, VideoStyle } from "@lore/shared";
 
 const steps = [
   { id: 1, label: "Select Transcripts" },
@@ -47,7 +48,10 @@ export function GenerateVideoWizard({
   const [step, setStep] = useState(1);
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
   const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>([]);
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState<VideoStyle | null>(null);
+  const [title, setTitle] = useState('');
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function toggleTranscript(id: string) {
     setSelectedTranscripts((prev) =>
@@ -83,13 +87,20 @@ export function GenerateVideoWizard({
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div>
-        <Link
-          href={`/campaigns/${campaignId}`}
-          className="mb-4 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Campaign
-        </Link>
+        {isPending ? (
+          <span className="mb-4 inline-flex cursor-not-allowed items-center gap-1 text-sm text-zinc-300 dark:text-zinc-600" aria-disabled="true">
+            <ChevronLeft className="h-4 w-4" />
+            Back to Campaign
+          </span>
+        ) : (
+          <Link
+            href={`/campaigns/${campaignId}`}
+            className="mb-4 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Campaign
+          </Link>
+        )}
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Generate Video</h1>
       </div>
 
@@ -283,6 +294,25 @@ export function GenerateVideoWizard({
       {/* Step 4: Review & Generate */}
       {step === 4 && (
         <div className="space-y-4">
+          {/* Collection title input */}
+          <Card>
+            <CardHeader><CardTitle>Video Collection Title</CardTitle></CardHeader>
+            <CardContent>
+              <label htmlFor="video-title" className="mb-1.5 block text-sm text-zinc-500">
+                Give this video generation a name (e.g. &quot;Session 5 Highlights&quot;)
+              </label>
+              <input
+                id="video-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter a title…"
+                maxLength={120}
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><CardTitle>Review</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -302,7 +332,12 @@ export function GenerateVideoWizard({
                 </div>
               </div>
               <div>
-                <p className="mb-2 text-sm font-medium text-zinc-500">Selected Scenes</p>
+                <p className="mb-2 text-sm font-medium text-zinc-500">
+                  Selected Scenes ({selectedSceneIds.length}/{MAX_SCENES} max)
+                  {selectedSceneIds.length > MAX_SCENES && (
+                    <span className="ml-2 text-red-500">Too many selected — please deselect some</span>
+                  )}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {selectedSceneIds.length > 0
                     ? allScenes
@@ -355,20 +390,11 @@ export function GenerateVideoWizard({
             </CardContent>
           </Card>
 
-          {/* Coming Soon overlay */}
-          <Card className="relative overflow-hidden">
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/90 dark:bg-zinc-900/90">
-              <Lock className="mb-3 h-10 w-10 text-zinc-400" />
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Video Generation Coming Soon</h3>
-              <p className="mt-1 text-sm text-zinc-500">
-                The AI video generation pipeline is under development. Stay tuned!
-              </p>
+          {generateError && (
+            <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-400">
+              {generateError}
             </div>
-            <CardContent className="py-12 text-center opacity-30">
-              <Wand2 className="mx-auto mb-4 h-12 w-12 text-violet-600" />
-              <p className="text-lg font-semibold">Generate Video</p>
-            </CardContent>
-          </Card>
+          )}
         </div>
       )}
 
@@ -377,7 +403,7 @@ export function GenerateVideoWizard({
         <Button
           variant="secondary"
           onClick={() => setStep((s) => s - 1)}
-          disabled={step === 1}
+          disabled={step === 1 || isPending}
         >
           <ChevronLeft className="h-4 w-4" />
           Back
@@ -391,9 +417,25 @@ export function GenerateVideoWizard({
             <ChevronRight className="h-4 w-4" />
           </Button>
         ) : (
-          <Button disabled>
+          <Button
+            disabled={isPending || !selectedStyle || selectedSceneIds.length === 0 || selectedSceneIds.length > MAX_SCENES || !title.trim()}
+            onClick={() => {
+              setGenerateError(null);
+              startTransition(async () => {
+                const result = await generateVideo(
+                  campaignId,
+                  selectedSceneIds,
+                  selectedStyle!,
+                  title.trim()
+                );
+                if (result?.error) {
+                  setGenerateError(result.error);
+                }
+              });
+            }}
+          >
             <Wand2 className="h-4 w-4" />
-            Generate (Coming Soon)
+            {isPending ? `Generating ${selectedSceneIds.length} clip${selectedSceneIds.length !== 1 ? 's' : ''}…` : 'Generate Videos'}
           </Button>
         )}
       </div>

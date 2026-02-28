@@ -91,6 +91,8 @@ export interface Video {
   status: VideoStatus;
   storage_path: string | null;
   duration_seconds: number | null;
+  fal_request_id: string | null;
+  scene_id: string | null;
   requested_by: string;
   created_at: string;
   updated_at: string;

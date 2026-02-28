@@ -1,5 +1,5 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server';
-import type { Video } from '@lore/shared';
+import type { Video, Transcript } from '@lore/shared';
 
 export async function getVideosByCampaign(campaignId: string): Promise<Video[]> {
   const adminClient = createAdminClient();
@@ -53,4 +53,29 @@ export async function getVideoById(id: string): Promise<Video | null> {
 
   if (error || !data) return null;
   return data as Video;
+}
+
+export async function getVideoSourceTranscript(videoId: string): Promise<Transcript | null> {
+  const adminClient = createAdminClient();
+
+  // Collapse videos → transcript_scenes into one join, then fetch transcript
+  const { data: link } = await adminClient
+    .from('videos')
+    .select('transcript_scenes!scene_id(transcript_id)')
+    .eq('id', videoId)
+    .single();
+
+  const transcriptId = (
+    link?.transcript_scenes as { transcript_id: string } | null
+  )?.transcript_id;
+  if (!transcriptId) return null;
+
+  const { data: transcript } = await adminClient
+    .from('transcripts')
+    .select('*')
+    .eq('id', transcriptId)
+    .single();
+
+  if (!transcript) return null;
+  return transcript as Transcript;
 }

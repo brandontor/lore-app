@@ -1,17 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Video, Download, Share2, Calendar, Sword, Palette } from "lucide-react";
+import { ChevronLeft, Download, Share2, Calendar, Sword, Palette, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { getVideoById } from "@/lib/queries/videos";
+import { getVideoById, getVideoSourceTranscript } from "@/lib/queries/videos";
 import { getCampaignById } from "@/lib/queries/campaigns";
+import { VideoDetailClient } from "./VideoDetailClient";
 import type { VideoStatus } from "@lore/shared";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+
+function getStorageUrl(storagePath: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/campaign-videos/${storagePath}`;
+}
+
 function isSafeStorageUrl(path: string): boolean {
-  if (path.startsWith("/")) return true;
+  if (!path) return false;
   try {
-    const url = new URL(path);
+    const url = new URL(path.startsWith('/') ? `https://x.com${path}` : path);
     return url.protocol === "https:";
   } catch {
     return false;
@@ -39,16 +46,27 @@ function statusBadgeVariant(status: VideoStatus): "warning" | "danger" {
 export default async function VideoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const video = await getVideoById(id);
+  const [video, sourceTranscript] = await Promise.all([
+    getVideoById(id),
+    getVideoSourceTranscript(id),
+  ]);
+
   if (!video) notFound();
 
   const campaign = await getCampaignById(video.campaign_id);
   const campaignName = campaign?.name ?? video.campaign_id;
 
   const generatedDate = new Date(video.created_at).toLocaleDateString();
-  const duration = formatDuration(video.duration_seconds);
   const isCompleted = video.status === "completed";
-  const hasFile = video.storage_path !== null && isSafeStorageUrl(video.storage_path);
+  const isPending = video.status === "pending" || video.status === "processing";
+  const duration = formatDuration(video.duration_seconds);
+
+  const videoUrl = video.storage_path
+    ? video.storage_path.startsWith('http')
+      ? video.storage_path
+      : getStorageUrl(video.storage_path)
+    : null;
+  const hasFile = videoUrl !== null && isSafeStorageUrl(videoUrl);
 
   return (
     <div className="space-y-6">
@@ -81,7 +99,7 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
               Share
             </Button>
             {hasFile ? (
-              <a href={video.storage_path!} download>
+              <a href={videoUrl!} download>
                 <Button>
                   <Download className="h-4 w-4" />
                   Download
@@ -99,50 +117,8 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
 
       {/* Main content */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Video player */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardContent className="p-0">
-              {hasFile ? (
-                <video
-                  src={video.storage_path!}
-                  controls
-                  aria-label={video.title}
-                  className="w-full rounded-t-lg aspect-video bg-zinc-900"
-                >
-                  Your browser does not support the video element.
-                </video>
-              ) : (
-                <div className="flex aspect-video items-center justify-center rounded-t-lg bg-zinc-900">
-                  <div className="text-center">
-                    <Video className="mx-auto mb-3 h-16 w-16 text-zinc-600" />
-                    <p className="text-sm text-zinc-500">Video player coming soon</p>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-3 dark:border-zinc-800">
-                <div className="flex items-center gap-3 text-sm text-zinc-500">
-                  <span>{duration}</span>
-                  <span>·</span>
-                  <span>{generatedDate}</span>
-                </div>
-                {hasFile ? (
-                  <a href={video.storage_path!} download>
-                    <Button size="sm" variant="secondary">
-                      <Download className="h-4 w-4" />
-                      Download MP4
-                    </Button>
-                  </a>
-                ) : (
-                  <Button size="sm" variant="secondary" disabled>
-                    <Download className="h-4 w-4" />
-                    Download MP4
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Video player + source transcript — handled by client for polling */}
+        <VideoDetailClient video={video} sourceTranscript={sourceTranscript} />
 
         {/* Metadata */}
         <div className="space-y-4">
@@ -170,13 +146,18 @@ export default async function VideoDetailPage({ params }: { params: Promise<{ id
                   <Badge variant="outline">{formatStyle(video.style)}</Badge>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle>Source Transcripts</CardTitle></CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-500">Source transcripts linked during generation.</p>
+              <div className="flex items-center gap-3 text-sm">
+                <Clock className="h-4 w-4 shrink-0 text-zinc-400" />
+                <div>
+                  <p className="text-xs text-zinc-500">Duration</p>
+                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{duration}</p>
+                </div>
+              </div>
+              {isPending && (
+                <p className="text-xs text-zinc-400 italic">
+                  Video is being generated. The page will update automatically.
+                </p>
+              )}
             </CardContent>
           </Card>
 
