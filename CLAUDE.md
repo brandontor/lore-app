@@ -17,6 +17,17 @@ npm run build --workspace=packages/shared
 npm run start --workspace=packages/bot
 ```
 
+## Pre-PR / Pre-Merge Checklist
+
+Run **all four** before opening or merging a PR. Skipping any of these causes Vercel build failures.
+
+```bash
+npm run build -w @lore/shared                          # 1. Rebuild shared types if changed
+npx tsc --noEmit -p packages/app/tsconfig.json        # 2. Full TypeScript typecheck (mirrors next build)
+npm run lint                                           # 3. ESLint
+npm run test                                           # 4. Unit tests (all must pass)
+```
+
 ## Architecture
 
 npm workspaces monorepo. D&D campaign management app with a Discord bot for voice recording.
