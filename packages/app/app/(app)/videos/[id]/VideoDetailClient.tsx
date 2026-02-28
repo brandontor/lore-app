@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Video, Download, ScrollText } from "lucide-react";
+import { Video, Download, ScrollText, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { Video as VideoType, Transcript, VideoStatus } from "@lore/shared";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+
+/** Maximum number of polls before giving up (5s × 60 = 5 minutes). */
+const MAX_POLLS = 60;
 
 function getStorageUrl(storagePath: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/campaign-videos/${storagePath}`;
@@ -48,10 +51,18 @@ export function VideoDetailClient({
   sourceTranscript: Transcript | null;
 }) {
   const [video, setVideo] = useState(initialVideo);
+  const pollCountRef = useRef(0);
 
   const isPending = video.status === 'pending' || video.status === 'processing';
+  const isError = video.status === 'error';
 
   const pollStatus = useCallback(async () => {
+    pollCountRef.current += 1;
+    // Stop polling after MAX_POLLS attempts and surface a timeout error
+    if (pollCountRef.current > MAX_POLLS) {
+      setVideo((prev) => ({ ...prev, status: 'error' }));
+      return;
+    }
     try {
       const res = await fetch(`/api/videos/${video.id}/status`);
       if (!res.ok) return;
@@ -99,7 +110,11 @@ export function VideoDetailClient({
             ) : (
               <div className="flex aspect-video items-center justify-center rounded-t-lg bg-zinc-900">
                 <div className="text-center">
-                  <Video className="mx-auto mb-3 h-16 w-16 text-zinc-600" />
+                  {isError ? (
+                    <AlertCircle className="mx-auto mb-3 h-16 w-16 text-red-500" />
+                  ) : (
+                    <Video className="mx-auto mb-3 h-16 w-16 text-zinc-600" />
+                  )}
                   {isPending ? (
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-zinc-400">
@@ -109,7 +124,7 @@ export function VideoDetailClient({
                     </div>
                   ) : (
                     <p className="text-sm text-zinc-500">
-                      {video.status === 'error' ? 'Generation failed' : 'Video not available'}
+                      {isError ? 'Generation failed' : 'Video not available'}
                     </p>
                   )}
                 </div>
@@ -118,7 +133,8 @@ export function VideoDetailClient({
             <div className="flex items-center justify-between border-t border-zinc-100 px-6 py-3 dark:border-zinc-800">
               <div className="flex items-center gap-3 text-sm text-zinc-500">
                 <span>{duration}</span>
-                {isPending && (
+                {/* Show status badge for both pending and error states */}
+                {(isPending || isError) && (
                   <>
                     <span>·</span>
                     <Badge variant={statusBadgeVariant(video.status)}>

@@ -4,6 +4,37 @@ import type { TranscriptScene, Character, VideoStyle } from '@lore/shared';
 
 fal.config({ credentials: process.env.FAL_KEY });
 
+// OpenAI client — hoisted to module scope so it is initialised once per cold start
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+export const CLIP_DURATION = '5' as const;
+
+/** Hostnames from which the server is allowed to fetch fal.ai video files. */
+export const FAL_ALLOWED_HOSTNAMES = new Set([
+  'v3.fal.media',
+  'fal.media',
+  'fal.run',
+  'fal-cdn.fal.ai',
+]);
+
+export function isFalVideoUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname;
+    return (
+      FAL_ALLOWED_HOSTNAMES.has(host) ||
+      host.endsWith('.fal.media') ||
+      host.endsWith('.fal.ai') ||
+      host.endsWith('.fal.run')
+    );
+  } catch {
+    return false;
+  }
+}
+
 const STYLE_PREFIXES: Record<VideoStyle, string> = {
   cinematic: 'cinematic epic fantasy film,',
   anime: 'anime japanese animation style,',
@@ -20,15 +51,12 @@ interface FalQueueStatus {
 }
 
 export async function buildVideoPrompt(
-  scene: TranscriptScene,
+  scene: Pick<TranscriptScene, 'title' | 'description' | 'mood'>,
   style: VideoStyle,
   campaignName: string,
   characters: Pick<Character, 'name' | 'appearance' | 'race' | 'class'>[]
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
-
-  const openai = new OpenAI({ apiKey });
+  if (!openai) throw new Error('OPENAI_API_KEY not configured');
 
   const characterDescriptions = characters
     .filter((c) => c.appearance)
@@ -67,7 +95,7 @@ export async function submitToFal(prompt: string): Promise<{ requestId: string }
   const handle = await fal.queue.submit('fal-ai/kling-video/v2/standard/text-to-video', {
     input: {
       prompt,
-      duration: '5',
+      duration: CLIP_DURATION,
       aspect_ratio: '16:9',
     },
   });

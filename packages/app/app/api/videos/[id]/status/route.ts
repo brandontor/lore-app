@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { getFalStatus } from '@/lib/fal';
+import { getFalStatus, isFalVideoUrl } from '@/lib/fal';
+import { CLIP_DURATION } from '@/lib/fal';
 
 export async function GET(
   _req: Request,
@@ -22,19 +23,19 @@ export async function GET(
     .eq('id', id)
     .single();
 
+  // Use 404 for both "not found" and "no access" to avoid leaking video existence
   if (error || !video) {
-    return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  // Only users with access to the campaign can poll
   const { data: hasAccess } = await supabase.rpc('user_has_campaign_access', {
     p_campaign_id: video.campaign_id,
   });
   if (!hasAccess) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  // Already settled — return immediately
+  // Already settled — return immediately without hitting fal.ai
   if (video.status === 'completed' || video.status === 'error') {
     return NextResponse.json({ status: video.status, storage_path: video.storage_path });
   }
@@ -51,37 +52,49 @@ export async function GET(
   }
 
   if (falStatus.status === 'COMPLETED' && falStatus.videoUrl) {
-    // Fetch from fal.ai and upload to Supabase storage
     let storagePath: string | null = null;
     try {
+      // Validate the URL comes from an expected fal.ai hostname before fetching
+      if (!isFalVideoUrl(falStatus.videoUrl)) {
+        throw new Error(`Unexpected video URL hostname: ${new URL(falStatus.videoUrl).hostname}`);
+      }
+
       const videoRes = await fetch(falStatus.videoUrl);
-      if (videoRes.ok) {
-        const buffer = await videoRes.arrayBuffer();
-        const fileName = `${id}.mp4`;
 
-        const { error: uploadError } = await adminClient.storage
-          .from('campaign-videos')
-          .upload(fileName, buffer, {
-            contentType: 'video/mp4',
-            upsert: true,
-          });
+      // Verify the response is actually a video before storing it
+      const contentType = videoRes.headers.get('content-type') ?? '';
+      if (!videoRes.ok || !contentType.startsWith('video/')) {
+        throw new Error(`Unexpected content-type from fal.ai: ${contentType}`);
+      }
 
-        if (!uploadError) {
-          storagePath = fileName;
-        }
+      const buffer = await videoRes.arrayBuffer();
+      // Namespace by campaign so RLS policies can scope by first path segment
+      const fileName = `${video.campaign_id}/${id}.mp4`;
+
+      const { error: uploadError } = await adminClient.storage
+        .from('campaign-videos')
+        .upload(fileName, buffer, {
+          contentType: 'video/mp4',
+          upsert: true,
+        });
+
+      if (!uploadError) {
+        storagePath = fileName;
       }
     } catch {
-      // If upload fails, still mark completed so polling stops; storage_path stays null
+      // Upload failure is non-fatal: mark completed with null storage_path so polling stops
     }
 
+    // Guard against concurrent polls both trying to update — only update if still not completed
     await adminClient
       .from('videos')
       .update({
         status: 'completed',
         storage_path: storagePath,
-        duration_seconds: 5,
+        duration_seconds: parseInt(CLIP_DURATION, 10),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .neq('status', 'completed');
 
     return NextResponse.json({ status: 'completed', storage_path: storagePath });
   }
@@ -90,12 +103,13 @@ export async function GET(
     await adminClient
       .from('videos')
       .update({ status: 'error' })
-      .eq('id', id);
+      .eq('id', id)
+      .neq('status', 'error');
 
     return NextResponse.json({ status: 'error', storage_path: null });
   }
 
-  // Still in queue or processing — update status in DB
+  // Still in queue or processing — update status in DB only if changed
   const dbStatus = falStatus.status === 'IN_PROGRESS' ? 'processing' : 'pending';
   if (dbStatus !== video.status) {
     await adminClient

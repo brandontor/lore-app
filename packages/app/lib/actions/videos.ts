@@ -6,9 +6,10 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { buildVideoPrompt, submitToFal } from '@/lib/fal';
 import type { ActionResult, VideoStyle } from '@lore/shared';
 
+export const MAX_SCENES = 10;
+
 export async function generateVideo(
   campaignId: string,
-  transcriptIds: string[],
   sceneIds: string[],
   style: VideoStyle,
   title: string
@@ -20,6 +21,9 @@ export async function generateVideo(
   const trimmedTitle = title.trim();
   if (!trimmedTitle) return { error: 'Title is required' };
   if (sceneIds.length === 0) return { error: 'At least one scene must be selected' };
+  if (sceneIds.length > MAX_SCENES) {
+    return { error: `Too many scenes selected (max ${MAX_SCENES}). Please reduce your selection.` };
+  }
 
   const adminClient = createAdminClient();
 
@@ -53,9 +57,9 @@ export async function generateVideo(
   if (!scenes || scenes.length === 0) return { error: 'No scenes found' };
 
   const characterList = characters ?? [];
-  let successCount = 0;
 
   const results = await Promise.allSettled(
+    // Note: scenes.length is capped at MAX_SCENES above, so concurrency is bounded
     scenes.map(async (scene) => {
       const prompt = await buildVideoPrompt(
         scene as Parameters<typeof buildVideoPrompt>[0],
@@ -94,11 +98,19 @@ export async function generateVideo(
     })
   );
 
-  successCount = results.filter((r) => r.status === 'fulfilled').length;
+  const successCount = results.filter((r) => r.status === 'fulfilled').length;
 
   if (successCount === 0) {
-    const firstError = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
-    return { error: firstError?.reason?.message ?? 'Failed to generate any videos' };
+    const reason = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')?.reason;
+    const errMsg: string = reason instanceof Error ? reason.message : '';
+
+    if (errMsg.includes('not configured') || errMsg.includes('API_KEY')) {
+      return { error: 'Service configuration error. Please contact support.' };
+    }
+    if (errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit')) {
+      return { error: 'AI service rate limit reached — please wait a moment and try again.' };
+    }
+    return { error: 'Failed to start video generation. Please try again.' };
   }
 
   revalidatePath('/videos');

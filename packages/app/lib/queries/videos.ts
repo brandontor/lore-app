@@ -58,27 +58,22 @@ export async function getVideoById(id: string): Promise<Video | null> {
 export async function getVideoSourceTranscript(videoId: string): Promise<Transcript | null> {
   const adminClient = createAdminClient();
 
-  // videos.scene_id → transcript_scenes.transcript_id → transcripts
-  const { data: video } = await adminClient
+  // Collapse videos → transcript_scenes into one join, then fetch transcript
+  const { data: link } = await adminClient
     .from('videos')
-    .select('scene_id')
+    .select('transcript_scenes!scene_id(transcript_id)')
     .eq('id', videoId)
     .single();
 
-  if (!video?.scene_id) return null;
-
-  const { data: scene } = await adminClient
-    .from('transcript_scenes')
-    .select('transcript_id')
-    .eq('id', video.scene_id)
-    .single();
-
-  if (!scene?.transcript_id) return null;
+  const transcriptId = (
+    link?.transcript_scenes as { transcript_id: string } | null
+  )?.transcript_id;
+  if (!transcriptId) return null;
 
   const { data: transcript } = await adminClient
     .from('transcripts')
     .select('*')
-    .eq('id', scene.transcript_id)
+    .eq('id', transcriptId)
     .single();
 
   if (!transcript) return null;

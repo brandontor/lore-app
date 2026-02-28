@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SceneCard } from "@/components/transcripts/SceneCard";
-import { generateVideo } from "@/lib/actions/videos";
+import { generateVideo, MAX_SCENES } from "@/lib/actions/videos";
 import type { Transcript, Character, TranscriptScene, VideoStyle } from "@lore/shared";
 
 const steps = [
@@ -87,13 +87,20 @@ export function GenerateVideoWizard({
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div>
-        <Link
-          href={`/campaigns/${campaignId}`}
-          className="mb-4 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Campaign
-        </Link>
+        {isPending ? (
+          <span className="mb-4 inline-flex cursor-not-allowed items-center gap-1 text-sm text-zinc-300 dark:text-zinc-600" aria-disabled="true">
+            <ChevronLeft className="h-4 w-4" />
+            Back to Campaign
+          </span>
+        ) : (
+          <Link
+            href={`/campaigns/${campaignId}`}
+            className="mb-4 inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Campaign
+          </Link>
+        )}
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Generate Video</h1>
       </div>
 
@@ -325,7 +332,12 @@ export function GenerateVideoWizard({
                 </div>
               </div>
               <div>
-                <p className="mb-2 text-sm font-medium text-zinc-500">Selected Scenes ({selectedSceneIds.length})</p>
+                <p className="mb-2 text-sm font-medium text-zinc-500">
+                  Selected Scenes ({selectedSceneIds.length}/{MAX_SCENES} max)
+                  {selectedSceneIds.length > MAX_SCENES && (
+                    <span className="ml-2 text-red-500">Too many selected — please deselect some</span>
+                  )}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {selectedSceneIds.length > 0
                     ? allScenes
@@ -406,13 +418,12 @@ export function GenerateVideoWizard({
           </Button>
         ) : (
           <Button
-            disabled={isPending || !selectedStyle || selectedSceneIds.length === 0 || !title.trim()}
+            disabled={isPending || !selectedStyle || selectedSceneIds.length === 0 || selectedSceneIds.length > MAX_SCENES || !title.trim()}
             onClick={() => {
               setGenerateError(null);
               startTransition(async () => {
                 const result = await generateVideo(
                   campaignId,
-                  selectedTranscripts,
                   selectedSceneIds,
                   selectedStyle!,
                   title.trim()
