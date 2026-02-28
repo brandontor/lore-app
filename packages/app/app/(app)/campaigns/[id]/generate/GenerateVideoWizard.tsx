@@ -19,7 +19,7 @@ const steps = [
   { id: 4, label: "Review & Generate" },
 ];
 
-const styles = [
+const styles: { id: VideoStyle; label: string; description: string }[] = [
   { id: "cinematic", label: "Cinematic", description: "Epic fantasy film aesthetic — dramatic lighting, sweeping vistas" },
   { id: "anime", label: "Anime", description: "Japanese animation style with expressive characters and vibrant colors" },
   { id: "painterly", label: "Painterly", description: "Digital oil painting reminiscent of classic fantasy book covers" },
