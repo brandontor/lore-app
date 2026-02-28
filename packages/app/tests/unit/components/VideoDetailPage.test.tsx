@@ -2,20 +2,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { notFound } from 'next/navigation';
 import { buildVideo, buildCampaignWithRole, CAMPAIGN_ID } from '../helpers/builders';
+import type { Video, Transcript } from '@lore/shared';
 
 vi.mock('@/lib/queries/videos', () => ({
   getVideoById: vi.fn(),
+  getVideoSourceTranscript: vi.fn(),
 }));
 vi.mock('@/lib/queries/campaigns', () => ({
   getCampaignById: vi.fn(),
   getUserCampaigns: vi.fn(),
 }));
 
-import { getVideoById } from '@/lib/queries/videos';
+// Stub VideoDetailClient so server component tests stay focused on server-side logic
+vi.mock('@/app/(app)/videos/[id]/VideoDetailClient', () => ({
+  VideoDetailClient: ({ video }: { video: Video; sourceTranscript: Transcript | null }) =>
+    video.storage_path ? (
+      <video src={video.storage_path} controls aria-label={video.title} />
+    ) : (
+      <p>Video player coming soon</p>
+    ),
+}));
+
+import { getVideoById, getVideoSourceTranscript } from '@/lib/queries/videos';
 import { getCampaignById } from '@/lib/queries/campaigns';
 import VideoDetailPage from '@/app/(app)/videos/[id]/page';
 
 const mockGetVideoById = vi.mocked(getVideoById);
+const mockGetVideoSourceTranscript = vi.mocked(getVideoSourceTranscript);
 const mockGetCampaignById = vi.mocked(getCampaignById);
 
 const CAMPAIGN = buildCampaignWithRole({ id: CAMPAIGN_ID, name: 'Curse of Strahd' });
@@ -23,6 +36,7 @@ const CAMPAIGN = buildCampaignWithRole({ id: CAMPAIGN_ID, name: 'Curse of Strahd
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetCampaignById.mockResolvedValue(CAMPAIGN);
+  mockGetVideoSourceTranscript.mockResolvedValue(null);
 });
 
 async function renderPage(id = 'video-1') {

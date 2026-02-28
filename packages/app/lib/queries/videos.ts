@@ -1,5 +1,5 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server';
-import type { Video } from '@lore/shared';
+import type { Video, Transcript } from '@lore/shared';
 
 export async function getVideosByCampaign(campaignId: string): Promise<Video[]> {
   const adminClient = createAdminClient();
@@ -53,4 +53,34 @@ export async function getVideoById(id: string): Promise<Video | null> {
 
   if (error || !data) return null;
   return data as Video;
+}
+
+export async function getVideoSourceTranscript(videoId: string): Promise<Transcript | null> {
+  const adminClient = createAdminClient();
+
+  // videos.scene_id → transcript_scenes.transcript_id → transcripts
+  const { data: video } = await adminClient
+    .from('videos')
+    .select('scene_id')
+    .eq('id', videoId)
+    .single();
+
+  if (!video?.scene_id) return null;
+
+  const { data: scene } = await adminClient
+    .from('transcript_scenes')
+    .select('transcript_id')
+    .eq('id', video.scene_id)
+    .single();
+
+  if (!scene?.transcript_id) return null;
+
+  const { data: transcript } = await adminClient
+    .from('transcripts')
+    .select('*')
+    .eq('id', scene.transcript_id)
+    .single();
+
+  if (!transcript) return null;
+  return transcript as Transcript;
 }
