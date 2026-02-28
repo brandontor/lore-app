@@ -101,9 +101,24 @@ export async function generateVideo(
 
   if (successCount === 0) {
     const reason = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')?.reason;
-    const errMsg: string = reason instanceof Error ? reason.message : '';
+
+    // Log the real error so it appears in Vercel runtime logs
+    console.error('[generateVideo] all scenes failed. First rejection:', reason);
+
+    // Handle non-Error throws (fal SDK and others can throw plain objects or strings)
+    const errMsg: string =
+      reason instanceof Error
+        ? reason.message
+        : typeof reason === 'string'
+          ? reason
+          : typeof reason?.message === 'string'
+            ? reason.message
+            : JSON.stringify(reason ?? '');
 
     if (errMsg.includes('not configured') || errMsg.includes('API_KEY')) {
+      return { error: 'Service configuration error. Please contact support.' };
+    }
+    if (errMsg.includes('401') || errMsg.includes('403') || errMsg.toLowerCase().includes('unauthorized') || errMsg.toLowerCase().includes('credentials')) {
       return { error: 'Service configuration error. Please contact support.' };
     }
     if (errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit')) {
