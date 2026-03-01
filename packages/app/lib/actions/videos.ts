@@ -46,7 +46,7 @@ export async function generateVideo(
 
   if (newSceneIds.length === 0) {
     revalidatePath('/videos');
-    redirect('/videos');
+    redirect('/videos?notice=already-generated');
   }
 
   const [
@@ -92,12 +92,12 @@ export async function generateVideo(
         characterList
       );
 
-      const { imageUrl: falImageUrl } = await generateKeyframe(imagePrompt);
-      const { requestId } = await submitImageToVideoFal(falImageUrl, motionPrompt, webhookUrl);
-
       const sceneTitle = scene.title || 'Untitled Scene';
       const videoTitle = `${trimmedTitle} — ${sceneTitle}`;
 
+      // Insert the video row FIRST so we always have a DB record before starting
+      // any billable fal.ai jobs. If the insert fails, we throw before spending money.
+      // If a later step fails, the try/catch below marks the row as 'error'.
       const { data: video, error: insertError } = await adminClient
         .from('videos')
         .insert({
@@ -105,7 +105,6 @@ export async function generateVideo(
           title: videoTitle,
           style,
           status: 'pending',
-          fal_request_id: requestId,
           fal_model: FAL_VIDEO_MODEL,
           scene_id: scene.id,
           requested_by: user.id,
@@ -115,19 +114,39 @@ export async function generateVideo(
 
       if (insertError || !video) throw new Error(insertError?.message ?? 'Failed to insert video');
 
-      // Upload keyframe permanently and save the CDN URL
-      const { storageUrl } = await uploadKeyframe(falImageUrl, campaignId, video.id);
-      await adminClient
-        .from('videos')
-        .update({ image_url: storageUrl })
-        .eq('id', video.id);
+      try {
+        // Generate keyframe image via FLUX dev
+        const { imageUrl: falImageUrl } = await generateKeyframe(imagePrompt);
 
-      await adminClient
-        .from('video_transcripts')
-        .insert({
-          video_id: video.id,
-          transcript_id: scene.transcript_id,
-        });
+        // Upload keyframe permanently and save the CDN URL
+        const { storageUrl } = await uploadKeyframe(falImageUrl, campaignId, video.id);
+        await adminClient
+          .from('videos')
+          .update({ image_url: storageUrl })
+          .eq('id', video.id);
+
+        // Submit Kling image-to-video job and record its requestId
+        const { requestId } = await submitImageToVideoFal(falImageUrl, motionPrompt, webhookUrl);
+        await adminClient
+          .from('videos')
+          .update({ fal_request_id: requestId })
+          .eq('id', video.id);
+
+        // Link to source transcript
+        await adminClient
+          .from('video_transcripts')
+          .insert({
+            video_id: video.id,
+            transcript_id: scene.transcript_id,
+          });
+      } catch (err) {
+        // Mark the row as error so it doesn't stay stuck in 'pending' with no fal_request_id
+        await adminClient
+          .from('videos')
+          .update({ status: 'error' })
+          .eq('id', video.id);
+        throw err;
+      }
     })
   );
 

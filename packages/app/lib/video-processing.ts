@@ -5,8 +5,10 @@ import { isFalVideoUrl, CLIP_DURATION } from '@/lib/fal';
  * Downloads a keyframe image from a fal.ai temporary URL and uploads it
  * permanently to Supabase Storage. Returns a public CDN URL.
  *
- * The path `{campaignId}/{videoId}_keyframe.jpg` is deterministic, so
- * re-uploading for the same video is safe (upsert: true).
+ * The filename extension is derived from the actual content-type returned by
+ * fal.ai, so JPEG/PNG/WebP bytes are always stored with a matching extension.
+ * (FLUX is configured to output JPEG via `output_format: 'jpeg'`, so in practice
+ * this will almost always be `.jpg`.)
  */
 export async function uploadKeyframe(
   falImageUrl: string,
@@ -24,13 +26,21 @@ export async function uploadKeyframe(
   }
 
   const buffer = await imageRes.arrayBuffer();
-  const fileName = `${campaignId}/${videoId}_keyframe.jpg`;
+
+  // Derive the file extension from the actual MIME type to avoid a
+  // JPEG-extension-on-PNG-bytes mismatch.
+  const ext =
+    contentType.includes('png') ? 'png'
+    : contentType.includes('webp') ? 'webp'
+    : 'jpg';
+
+  const fileName = `${campaignId}/${videoId}_keyframe.${ext}`;
 
   const adminClient = createAdminClient();
   const { error: uploadError } = await adminClient.storage
     .from('campaign-videos')
     .upload(fileName, buffer, {
-      contentType: 'image/jpeg',
+      contentType,
       upsert: true,
     });
 

@@ -110,21 +110,61 @@ ${characterDescriptions ? `Characters:\n${characterDescriptions}` : ''}`;
   };
 }
 
+/**
+ * Generates a keyframe image via FLUX dev.
+ *
+ * Uses fal.queue.submit (non-blocking) + explicit polling so we have a hard
+ * timeout. FLUX dev typically completes in 5–15s. The total allowed time is
+ * 40s — this requires Vercel Pro (60s limit) or a long-running runtime;
+ * Vercel Hobby (10s) will not support this.
+ */
 export async function generateKeyframe(
   imagePrompt: string
 ): Promise<{ imageUrl: string }> {
-  const result = await fal.subscribe(FAL_IMAGE_MODEL, {
+  const TIMEOUT_MS = 40_000;
+  const POLL_INTERVAL_MS = 2_000;
+
+  // Submit to queue immediately (returns requestId, does not block)
+  const handle = await fal.queue.submit(FAL_IMAGE_MODEL, {
     input: {
       prompt: imagePrompt,
       image_size: 'landscape_4_3',
       num_images: 1,
       guidance_scale: 3.5,
-    },
-  }) as { data: FalImageResult };
+      // output_format and negative_prompt are valid FLUX dev params but not yet
+      // reflected in the fal SDK's TypeScript types for this endpoint.
+      output_format: 'jpeg', // forces JPEG — keeps extension/MIME consistent
+      negative_prompt: NEGATIVE_PROMPT,
+    } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  });
 
-  const url = result.data?.images?.[0]?.url;
-  if (!url) throw new Error('FLUX returned no image');
-  return { imageUrl: url };
+  const requestId = handle.request_id;
+  const deadline = Date.now() + TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const status = await fal.queue.status(FAL_IMAGE_MODEL, {
+      requestId,
+      logs: false,
+    }) as FalQueueStatus;
+
+    if (status.status === 'COMPLETED') {
+      const result = await fal.queue.result(FAL_IMAGE_MODEL, {
+        requestId,
+      }) as { data: FalImageResult };
+      const url = result.data?.images?.[0]?.url;
+      if (!url) throw new Error('FLUX returned no image URL');
+      return { imageUrl: url };
+    }
+
+    if (status.status === 'FAILED') {
+      throw new Error('FLUX keyframe generation failed');
+    }
+
+    // IN_QUEUE or IN_PROGRESS — wait before next poll
+    await new Promise<void>((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+
+  throw new Error(`FLUX keyframe timed out after ${TIMEOUT_MS / 1000}s`);
 }
 
 export async function submitImageToVideoFal(
@@ -139,6 +179,8 @@ export async function submitImageToVideoFal(
       duration: CLIP_DURATION,
       aspect_ratio: '16:9',
       negative_prompt: NEGATIVE_PROMPT,
+      // cfg_scale controls prompt adherence (0–1). Not yet in the fal SDK's
+      // TypeScript types for this endpoint, so cast to any.
       cfg_scale: 0.5,
     } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     ...(webhookUrl ? { webhookUrl } : {}),
@@ -148,6 +190,9 @@ export async function submitImageToVideoFal(
 
 export async function getFalStatus(
   requestId: string,
+  // Pass the exact model path that was used to submit the job.
+  // Stored on the video row (fal_model) so we can poll the correct queue
+  // even after a deployment changes the default model.
   model: string
 ): Promise<{
   status: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';

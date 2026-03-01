@@ -48,6 +48,8 @@ export async function GET(
   try {
     falStatus = await getFalStatus(
       video.fal_request_id,
+      // Fall back to the legacy text-to-video model for rows created before
+      // migration 010 added the fal_model column (those rows have NULL).
       video.fal_model ?? 'fal-ai/kling-video/v1.6/standard/text-to-video'
     );
   } catch {

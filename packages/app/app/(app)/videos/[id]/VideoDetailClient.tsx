@@ -107,7 +107,7 @@ export function VideoDetailClient({
               >
                 Your browser does not support the video element.
               </video>
-            ) : isPending && video.image_url ? (
+            ) : isPending && video.image_url && isSafeUrl(video.image_url) ? (
               <div className="relative aspect-video rounded-t-lg overflow-hidden bg-zinc-900">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

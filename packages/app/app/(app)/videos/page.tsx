@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Video, Download, Filter } from "lucide-react";
+import { Video, Download, Filter, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -35,8 +35,13 @@ function statusBadgeVariant(status: VideoStatus): "warning" | "danger" {
   return status === "error" ? "danger" : "warning";
 }
 
-export default async function VideosPage() {
-  const [videos, campaigns] = await Promise.all([
+export default async function VideosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string }>;
+}) {
+  const [{ notice }, videos, campaigns] = await Promise.all([
+    searchParams,
     getAllUserVideos(),
     getUserCampaigns(),
   ]);
@@ -59,6 +64,13 @@ export default async function VideosPage() {
         </button>
       </div>
 
+      {notice === 'already-generated' && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>All selected scenes already have videos for that style — your existing videos are shown below.</span>
+        </div>
+      )}
+
       {videos.length === 0 ? (
         <EmptyState
           icon={Video}
@@ -73,6 +85,8 @@ export default async function VideosPage() {
             const duration = formatDuration(video.duration_seconds);
             const isCompleted = video.status === "completed";
             const hasFile = video.storage_path !== null && isSafeStorageUrl(video.storage_path);
+            // Validate image_url before rendering — it comes from the DB and must be https
+            const hasKeyframe = video.image_url !== null && isSafeStorageUrl(video.image_url);
 
             return (
               <Card key={video.id} className="group overflow-hidden">
@@ -80,10 +94,10 @@ export default async function VideosPage() {
                   {/* Thumbnail */}
                   <Link href={`/videos/${video.id}`}>
                     <div className="relative flex h-44 items-center justify-center overflow-hidden bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
-                      {video.image_url ? (
+                      {hasKeyframe ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={video.image_url}
+                          src={video.image_url!}
                           alt={video.title}
                           className="h-full w-full object-cover"
                         />

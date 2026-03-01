@@ -23,8 +23,8 @@ beforeEach(() => {
   mockGetUserCampaigns.mockResolvedValue([CAMPAIGN]);
 });
 
-async function renderPage() {
-  const jsx = await VideosPage();
+async function renderPage(notice?: string) {
+  const jsx = await VideosPage({ searchParams: Promise.resolve(notice ? { notice } : {}) });
   return render(jsx);
 }
 
