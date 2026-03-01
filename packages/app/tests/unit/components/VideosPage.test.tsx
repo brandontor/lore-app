@@ -87,13 +87,24 @@ describe('VideosPage — with videos', () => {
   });
 
   it('renders download as a link when storage_path is set', async () => {
+    const storagePath = 'https://example.supabase.co/storage/v1/object/public/campaign-videos/abc.mp4';
     mockGetAllUserVideos.mockResolvedValue([
-      buildVideo({ storage_path: '/videos/abc.mp4', campaign_id: CAMPAIGN_ID }),
+      buildVideo({ storage_path: storagePath, campaign_id: CAMPAIGN_ID }),
     ]);
     await renderPage();
     // Storage path present → renders as <a download>, not a <button>
     const downloadLink = screen.getByRole('link', { name: /download/i });
-    expect(downloadLink).toHaveAttribute('href', '/videos/abc.mp4');
+    expect(downloadLink).toHaveAttribute('href', storagePath);
+  });
+
+  it('renders keyframe thumbnail when image_url is set', async () => {
+    const imageUrl = 'https://example.supabase.co/storage/v1/object/public/campaign-videos/camp/vid_keyframe.jpg';
+    mockGetAllUserVideos.mockResolvedValue([
+      buildVideo({ image_url: imageUrl, campaign_id: CAMPAIGN_ID }),
+    ]);
+    await renderPage();
+    const img = screen.getByRole('img', { name: /epic encounter/i });
+    expect(img).toHaveAttribute('src', imageUrl);
   });
 
   it('falls back to campaign_id when campaign is not in the campaign map', async () => {

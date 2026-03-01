@@ -14,11 +14,11 @@ function formatDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function isSafeStorageUrl(path: string): boolean {
-  if (path.startsWith("/")) return true;
+function isSafeStorageUrl(url: string): boolean {
+  if (!url) return false;
   try {
-    const url = new URL(path);
-    return url.protocol === "https:";
+    const parsed = new URL(url);
+    return parsed.protocol === "https:";
   } catch {
     return false;
   }

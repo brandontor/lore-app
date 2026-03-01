@@ -10,6 +10,13 @@ import type { Video as VideoType, Transcript, VideoStatus } from "@lore/shared";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 
+// Derive the expected hostname once so isSafeUrl can restrict image/video
+// sources to the known Supabase CDN. Falls back to allowing any https host
+// when SUPABASE_URL is not configured (e.g. in tests).
+const SUPABASE_HOSTNAME = (() => {
+  try { return new URL(SUPABASE_URL).hostname; } catch { return ''; }
+})();
+
 /** Maximum number of polls before giving up (5s × 60 = 5 minutes). */
 const MAX_POLLS = 60;
 
@@ -21,7 +28,8 @@ function isSafeUrl(path: string): boolean {
   if (!path) return false;
   try {
     const url = new URL(path.startsWith('/') ? `https://x.com${path}` : path);
-    return url.protocol === 'https:';
+    if (url.protocol !== 'https:') return false;
+    return !SUPABASE_HOSTNAME || url.hostname === SUPABASE_HOSTNAME;
   } catch {
     return false;
   }

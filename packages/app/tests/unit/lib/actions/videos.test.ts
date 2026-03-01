@@ -244,7 +244,7 @@ describe('generateVideo', () => {
       expect.stringContaining('a dragon rises from its lair')
     );
     expect(mockSubmitImageToVideo).toHaveBeenCalledWith(
-      'https://v3.fal.media/files/keyframe.jpg',
+      'https://supabase.co/storage/v1/object/public/campaign-videos/camp/vid_keyframe.jpg',
       expect.any(String),
       undefined
     );
@@ -339,6 +339,24 @@ describe('generateVideo', () => {
     const keyframeOrder = mockGenerateKeyframe.mock.invocationCallOrder[0];
     expect(bvpOrder).toBeLessThan(insertOrder);
     expect(insertOrder).toBeLessThan(keyframeOrder);
+  });
+
+  it('marks video row as error when fal_request_id UPDATE fails after Kling submit', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: OWNER_ID } } });
+    mockWriteAccess(true);
+    mockDedup();
+    mockDataFetches({});
+    const insertChain = makeChain({ id: VIDEO_ID });
+    const falReqChain = makeChain(null, { message: 'connection error' });
+    const cleanupChain = makeChain(null);
+    mockFrom
+      .mockReturnValueOnce(insertChain)     // videos INSERT
+      .mockReturnValueOnce(makeChain(null)) // videos UPDATE image_url
+      .mockReturnValueOnce(falReqChain)     // videos UPDATE fal_request_id (fails)
+      .mockReturnValueOnce(cleanupChain);   // videos UPDATE status='error'
+    const result = await generateVideo(CAMPAIGN_ID, [SCENE_ID], 'cinematic', 'My Video');
+    expect(result).toEqual({ error: 'Failed to start video generation. Please try again.' });
+    expect(cleanupChain.update).toHaveBeenCalledWith({ status: 'error' });
   });
 
   it('partial success (1 of 2 scenes fails at buildVideoPrompt) still redirects', async () => {

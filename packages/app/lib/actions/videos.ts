@@ -125,12 +125,15 @@ export async function generateVideo(
           .update({ image_url: storageUrl })
           .eq('id', video.id);
 
-        // Submit Kling image-to-video job and record its requestId
-        const { requestId } = await submitImageToVideoFal(falImageUrl, motionPrompt, webhookUrl);
-        await adminClient
+        // Submit Kling image-to-video job using the permanent Supabase CDN URL.
+        // The fal.ai temporary URL (falImageUrl) may expire before Kling starts
+        // executing the job; the storage URL never expires.
+        const { requestId } = await submitImageToVideoFal(storageUrl, motionPrompt, webhookUrl);
+        const { error: falReqUpdateError } = await adminClient
           .from('videos')
           .update({ fal_request_id: requestId })
           .eq('id', video.id);
+        if (falReqUpdateError) throw new Error(`Failed to record fal_request_id: ${falReqUpdateError.message}`);
 
         // Link to source transcript
         await adminClient
