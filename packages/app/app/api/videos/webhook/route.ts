@@ -26,6 +26,10 @@ export async function POST(req: Request) {
 
   const { request_id, status, payload } = body;
 
+  if (!request_id) {
+    return NextResponse.json({ error: 'Missing request_id' }, { status: 400 });
+  }
+
   const adminClient = createAdminClient();
 
   const { data: video } = await adminClient

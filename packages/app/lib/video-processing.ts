@@ -47,8 +47,9 @@ export async function processCompletedFalVideo(
     if (!uploadError) {
       storagePath = fileName;
     }
-  } catch {
+  } catch (err) {
     // Upload failure is non-fatal: mark completed with null storage_path so polling stops
+    console.error('[processCompletedFalVideo] upload failed for video', videoId, err);
   }
 
   // Guard against concurrent polls both trying to update — only update if still not completed

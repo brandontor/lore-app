@@ -18,28 +18,23 @@ export async function GET(req: Request) {
     .not('fal_request_id', 'is', null)
     .limit(20);
 
-  let processed = 0;
+  const results = await Promise.allSettled(
+    (videos ?? []).map(async (video) => {
+      const falStatus = await getFalStatus(video.fal_request_id!);
 
-  for (const video of videos ?? []) {
-    let falStatus: Awaited<ReturnType<typeof getFalStatus>>;
-    try {
-      falStatus = await getFalStatus(video.fal_request_id!);
-    } catch {
-      continue;
-    }
+      if (falStatus.status === 'COMPLETED' && falStatus.videoUrl) {
+        await processCompletedFalVideo(video.id, video.campaign_id, falStatus.videoUrl);
+      } else if (falStatus.status === 'FAILED') {
+        await adminClient
+          .from('videos')
+          .update({ status: 'error' })
+          .eq('id', video.id)
+          .neq('status', 'error');
+      }
+    })
+  );
 
-    if (falStatus.status === 'COMPLETED' && falStatus.videoUrl) {
-      await processCompletedFalVideo(video.id, video.campaign_id, falStatus.videoUrl);
-      processed++;
-    } else if (falStatus.status === 'FAILED') {
-      await adminClient
-        .from('videos')
-        .update({ status: 'error' })
-        .eq('id', video.id)
-        .neq('status', 'error');
-      processed++;
-    }
-  }
+  const processed = results.filter((r) => r.status === 'fulfilled').length;
 
   return NextResponse.json({ processed, total: videos?.length ?? 0 });
 }
