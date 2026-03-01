@@ -111,6 +111,9 @@ export async function generateVideo(
 
     // Log the real error so it appears in Vercel runtime logs
     console.error('[generateVideo] all scenes failed. First rejection:', reason);
+    if (reason?.body !== undefined) {
+      console.error('[generateVideo] fal.ai error body:', JSON.stringify(reason.body));
+    }
 
     // Handle non-Error throws (fal SDK and others can throw plain objects or strings)
     const errMsg: string =
