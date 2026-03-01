@@ -19,7 +19,7 @@ export async function GET(
 
   const { data: video, error } = await adminClient
     .from('videos')
-    .select('id, status, fal_request_id, storage_path, campaign_id')
+    .select('id, status, fal_request_id, storage_path, campaign_id, fal_model')
     .eq('id', id)
     .single();
 
@@ -46,7 +46,10 @@ export async function GET(
 
   let falStatus: Awaited<ReturnType<typeof getFalStatus>>;
   try {
-    falStatus = await getFalStatus(video.fal_request_id);
+    falStatus = await getFalStatus(
+      video.fal_request_id,
+      video.fal_model ?? 'fal-ai/kling-video/v1.6/standard/text-to-video'
+    );
   } catch {
     return NextResponse.json({ status: video.status, storage_path: video.storage_path });
   }

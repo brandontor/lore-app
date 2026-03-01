@@ -92,7 +92,9 @@ export interface Video {
   storage_path: string | null;
   duration_seconds: number | null;
   fal_request_id: string | null;
+  fal_model: string;
   scene_id: string | null;
+  image_url: string | null;
   requested_by: string;
   created_at: string;
   updated_at: string;

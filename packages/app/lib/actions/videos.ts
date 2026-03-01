@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { buildVideoPrompt, submitToFal } from '@/lib/fal';
+import { buildVideoPrompt, generateKeyframe, submitImageToVideoFal, FAL_VIDEO_MODEL } from '@/lib/fal';
+import { uploadKeyframe } from '@/lib/video-processing';
 import type { ActionResult, VideoStyle } from '@lore/shared';
 import { MAX_SCENES } from '@/lib/video-constants';
 
@@ -31,6 +32,23 @@ export async function generateVideo(
   });
   if (!hasWrite) return { error: 'Access denied' };
 
+  // Deduplication: skip scenes that already have a non-failed video for this style
+  const { data: existingVideos } = await adminClient
+    .from('videos')
+    .select('scene_id')
+    .in('scene_id', sceneIds)
+    .eq('style', style)
+    .eq('campaign_id', campaignId)
+    .in('status', ['completed', 'pending', 'processing']);
+
+  const existingSceneIds = new Set(existingVideos?.map((v) => v.scene_id) ?? []);
+  const newSceneIds = sceneIds.filter((id) => !existingSceneIds.has(id));
+
+  if (newSceneIds.length === 0) {
+    revalidatePath('/videos');
+    redirect('/videos');
+  }
+
   const [
     { data: scenes },
     { data: campaign },
@@ -39,7 +57,7 @@ export async function generateVideo(
     adminClient
       .from('transcript_scenes')
       .select('id, transcript_id, title, description, mood')
-      .in('id', sceneIds)
+      .in('id', newSceneIds)
       .eq('campaign_id', campaignId),
     adminClient
       .from('campaigns')
@@ -67,14 +85,15 @@ export async function generateVideo(
   const results = await Promise.allSettled(
     // Note: scenes.length is capped at MAX_SCENES above, so concurrency is bounded
     scenes.map(async (scene) => {
-      const prompt = await buildVideoPrompt(
+      const { imagePrompt, motionPrompt } = await buildVideoPrompt(
         scene as Parameters<typeof buildVideoPrompt>[0],
         style,
         campaign.name,
         characterList
       );
 
-      const { requestId } = await submitToFal(prompt, webhookUrl);
+      const { imageUrl: falImageUrl } = await generateKeyframe(imagePrompt);
+      const { requestId } = await submitImageToVideoFal(falImageUrl, motionPrompt, webhookUrl);
 
       const sceneTitle = scene.title || 'Untitled Scene';
       const videoTitle = `${trimmedTitle} — ${sceneTitle}`;
@@ -87,6 +106,7 @@ export async function generateVideo(
           style,
           status: 'pending',
           fal_request_id: requestId,
+          fal_model: FAL_VIDEO_MODEL,
           scene_id: scene.id,
           requested_by: user.id,
         })
@@ -94,6 +114,13 @@ export async function generateVideo(
         .single();
 
       if (insertError || !video) throw new Error(insertError?.message ?? 'Failed to insert video');
+
+      // Upload keyframe permanently and save the CDN URL
+      const { storageUrl } = await uploadKeyframe(falImageUrl, campaignId, video.id);
+      await adminClient
+        .from('videos')
+        .update({ image_url: storageUrl })
+        .eq('id', video.id);
 
       await adminClient
         .from('video_transcripts')

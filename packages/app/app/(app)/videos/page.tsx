@@ -77,10 +77,19 @@ export default async function VideosPage() {
             return (
               <Card key={video.id} className="group overflow-hidden">
                 <CardContent className="p-0">
-                  {/* Thumbnail placeholder */}
+                  {/* Thumbnail */}
                   <Link href={`/videos/${video.id}`}>
-                    <div className="relative flex h-44 items-center justify-center bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
-                      <Video className="h-10 w-10 text-zinc-400" />
+                    <div className="relative flex h-44 items-center justify-center overflow-hidden bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
+                      {video.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={video.image_url}
+                          alt={video.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Video className="h-10 w-10 text-zinc-400" />
+                      )}
                       {isCompleted && duration && (
                         <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
                           {duration}
