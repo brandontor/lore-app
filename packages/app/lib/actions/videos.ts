@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { buildVideoPrompt, submitToFal } from '@/lib/fal';
+import { buildVideoPrompt, generateKeyframe, submitImageToVideoFal, FAL_VIDEO_MODEL } from '@/lib/fal';
+import { uploadKeyframe } from '@/lib/video-processing';
 import type { ActionResult, VideoStyle } from '@lore/shared';
 import { MAX_SCENES } from '@/lib/video-constants';
 
@@ -31,6 +32,23 @@ export async function generateVideo(
   });
   if (!hasWrite) return { error: 'Access denied' };
 
+  // Deduplication: skip scenes that already have a non-failed video for this style
+  const { data: existingVideos } = await adminClient
+    .from('videos')
+    .select('scene_id')
+    .in('scene_id', sceneIds)
+    .eq('style', style)
+    .eq('campaign_id', campaignId)
+    .in('status', ['completed', 'pending', 'processing']);
+
+  const existingSceneIds = new Set(existingVideos?.map((v) => v.scene_id) ?? []);
+  const newSceneIds = sceneIds.filter((id) => !existingSceneIds.has(id));
+
+  if (newSceneIds.length === 0) {
+    revalidatePath('/videos');
+    redirect('/videos?notice=already-generated');
+  }
+
   const [
     { data: scenes },
     { data: campaign },
@@ -39,7 +57,7 @@ export async function generateVideo(
     adminClient
       .from('transcript_scenes')
       .select('id, transcript_id, title, description, mood')
-      .in('id', sceneIds)
+      .in('id', newSceneIds)
       .eq('campaign_id', campaignId),
     adminClient
       .from('campaigns')
@@ -67,18 +85,19 @@ export async function generateVideo(
   const results = await Promise.allSettled(
     // Note: scenes.length is capped at MAX_SCENES above, so concurrency is bounded
     scenes.map(async (scene) => {
-      const prompt = await buildVideoPrompt(
+      const { imagePrompt, motionPrompt } = await buildVideoPrompt(
         scene as Parameters<typeof buildVideoPrompt>[0],
         style,
         campaign.name,
         characterList
       );
 
-      const { requestId } = await submitToFal(prompt, webhookUrl);
-
       const sceneTitle = scene.title || 'Untitled Scene';
       const videoTitle = `${trimmedTitle} — ${sceneTitle}`;
 
+      // Insert the video row FIRST so we always have a DB record before starting
+      // any billable fal.ai jobs. If the insert fails, we throw before spending money.
+      // If a later step fails, the try/catch below marks the row as 'error'.
       const { data: video, error: insertError } = await adminClient
         .from('videos')
         .insert({
@@ -86,7 +105,7 @@ export async function generateVideo(
           title: videoTitle,
           style,
           status: 'pending',
-          fal_request_id: requestId,
+          fal_model: FAL_VIDEO_MODEL,
           scene_id: scene.id,
           requested_by: user.id,
         })
@@ -95,12 +114,42 @@ export async function generateVideo(
 
       if (insertError || !video) throw new Error(insertError?.message ?? 'Failed to insert video');
 
-      await adminClient
-        .from('video_transcripts')
-        .insert({
-          video_id: video.id,
-          transcript_id: scene.transcript_id,
-        });
+      try {
+        // Generate keyframe image via FLUX dev
+        const { imageUrl: falImageUrl } = await generateKeyframe(imagePrompt);
+
+        // Upload keyframe permanently and save the CDN URL
+        const { storageUrl } = await uploadKeyframe(falImageUrl, campaignId, video.id);
+        await adminClient
+          .from('videos')
+          .update({ image_url: storageUrl })
+          .eq('id', video.id);
+
+        // Submit Kling image-to-video job using the permanent Supabase CDN URL.
+        // The fal.ai temporary URL (falImageUrl) may expire before Kling starts
+        // executing the job; the storage URL never expires.
+        const { requestId } = await submitImageToVideoFal(storageUrl, motionPrompt, webhookUrl);
+        const { error: falReqUpdateError } = await adminClient
+          .from('videos')
+          .update({ fal_request_id: requestId })
+          .eq('id', video.id);
+        if (falReqUpdateError) throw new Error(`Failed to record fal_request_id: ${falReqUpdateError.message}`);
+
+        // Link to source transcript
+        await adminClient
+          .from('video_transcripts')
+          .insert({
+            video_id: video.id,
+            transcript_id: scene.transcript_id,
+          });
+      } catch (err) {
+        // Mark the row as error so it doesn't stay stuck in 'pending' with no fal_request_id
+        await adminClient
+          .from('videos')
+          .update({ status: 'error' })
+          .eq('id', video.id);
+        throw err;
+      }
     })
   );
 

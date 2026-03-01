@@ -48,6 +48,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // Unrecognised status — return 200 so fal.ai doesn't retry, but take no action
+  if (status !== 'OK' && status !== 'ERROR') {
+    return NextResponse.json({ ok: true });
+  }
+
   if (status === 'ERROR') {
     await adminClient
       .from('videos')

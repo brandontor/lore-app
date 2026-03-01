@@ -2,6 +2,61 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { isFalVideoUrl, CLIP_DURATION } from '@/lib/fal';
 
 /**
+ * Downloads a keyframe image from a fal.ai temporary URL and uploads it
+ * permanently to Supabase Storage. Returns a public CDN URL.
+ *
+ * The filename extension is derived from the actual content-type returned by
+ * fal.ai, so JPEG/PNG/WebP bytes are always stored with a matching extension.
+ * (FLUX is configured to output JPEG via `output_format: 'jpeg'`, so in practice
+ * this will almost always be `.jpg`.)
+ */
+export async function uploadKeyframe(
+  falImageUrl: string,
+  campaignId: string,
+  videoId: string
+): Promise<{ storageUrl: string }> {
+  if (!isFalVideoUrl(falImageUrl)) {
+    throw new Error(`Unexpected image URL hostname: ${new URL(falImageUrl).hostname}`);
+  }
+
+  const imageRes = await fetch(falImageUrl);
+  const contentType = imageRes.headers.get('content-type') ?? '';
+  if (!imageRes.ok || !contentType.startsWith('image/')) {
+    throw new Error(`Unexpected content-type from fal.ai: ${contentType}`);
+  }
+
+  const buffer = await imageRes.arrayBuffer();
+
+  // Derive the file extension from the actual MIME type to avoid a
+  // JPEG-extension-on-PNG-bytes mismatch.
+  const ext =
+    contentType.includes('png') ? 'png'
+    : contentType.includes('webp') ? 'webp'
+    : 'jpg';
+
+  const fileName = `${campaignId}/${videoId}_keyframe.${ext}`;
+
+  const adminClient = createAdminClient();
+  const { error: uploadError } = await adminClient.storage
+    .from('campaign-videos')
+    .upload(fileName, buffer, {
+      contentType,
+      upsert: true,
+    });
+
+  if (uploadError) {
+    throw new Error(`Keyframe upload failed: ${uploadError.message}`);
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL not configured');
+
+  return {
+    storageUrl: `${supabaseUrl}/storage/v1/object/public/campaign-videos/${fileName}`,
+  };
+}
+
+/**
  * Downloads a completed fal.ai video, uploads it to Supabase storage,
  * and updates the video row in the DB.
  *

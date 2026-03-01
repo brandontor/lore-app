@@ -2,13 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Video, Download, ScrollText, AlertCircle } from "lucide-react";
+import { Video, Download, ScrollText, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { Video as VideoType, Transcript, VideoStatus } from "@lore/shared";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+
+// Derive the expected hostname once so isSafeUrl can restrict image/video
+// sources to the known Supabase CDN. Falls back to allowing any https host
+// when SUPABASE_URL is not configured (e.g. in tests).
+const SUPABASE_HOSTNAME = (() => {
+  try { return new URL(SUPABASE_URL).hostname; } catch { return ''; }
+})();
 
 /** Maximum number of polls before giving up (5s × 60 = 5 minutes). */
 const MAX_POLLS = 60;
@@ -21,7 +28,8 @@ function isSafeUrl(path: string): boolean {
   if (!path) return false;
   try {
     const url = new URL(path.startsWith('/') ? `https://x.com${path}` : path);
-    return url.protocol === 'https:';
+    if (url.protocol !== 'https:') return false;
+    return !SUPABASE_HOSTNAME || url.hostname === SUPABASE_HOSTNAME;
   } catch {
     return false;
   }
@@ -107,6 +115,22 @@ export function VideoDetailClient({
               >
                 Your browser does not support the video element.
               </video>
+            ) : isPending && video.image_url && isSafeUrl(video.image_url) ? (
+              <div className="relative aspect-video rounded-t-lg overflow-hidden bg-zinc-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={video.image_url}
+                  alt="Scene keyframe"
+                  className="h-full w-full object-cover opacity-60"
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                  <p className="mt-2 text-sm text-white">
+                    {video.status === 'processing' ? 'Generating video…' : 'Queued for generation…'}
+                  </p>
+                  <p className="mt-1 text-xs text-white/60">This page updates automatically.</p>
+                </div>
+              </div>
             ) : (
               <div className="flex aspect-video items-center justify-center rounded-t-lg bg-zinc-900">
                 <div className="text-center">
