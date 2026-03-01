@@ -57,6 +57,13 @@ export async function generateVideo(
 
   const characterList = characters ?? [];
 
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const webhookUrl =
+    webhookSecret && appUrl
+      ? `${appUrl}/api/videos/webhook?secret=${webhookSecret}`
+      : undefined;
+
   const results = await Promise.allSettled(
     // Note: scenes.length is capped at MAX_SCENES above, so concurrency is bounded
     scenes.map(async (scene) => {
@@ -67,7 +74,7 @@ export async function generateVideo(
         characterList
       );
 
-      const { requestId } = await submitToFal(prompt);
+      const { requestId } = await submitToFal(prompt, webhookUrl);
 
       const sceneTitle = scene.title || 'Untitled Scene';
       const videoTitle = `${trimmedTitle} — ${sceneTitle}`;

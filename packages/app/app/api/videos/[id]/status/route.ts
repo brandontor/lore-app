@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { getFalStatus, isFalVideoUrl } from '@/lib/fal';
-import { CLIP_DURATION } from '@/lib/fal';
+import { getFalStatus } from '@/lib/fal';
+import { processCompletedFalVideo } from '@/lib/video-processing';
 
 export async function GET(
   _req: Request,
@@ -52,50 +52,7 @@ export async function GET(
   }
 
   if (falStatus.status === 'COMPLETED' && falStatus.videoUrl) {
-    let storagePath: string | null = null;
-    try {
-      // Validate the URL comes from an expected fal.ai hostname before fetching
-      if (!isFalVideoUrl(falStatus.videoUrl)) {
-        throw new Error(`Unexpected video URL hostname: ${new URL(falStatus.videoUrl).hostname}`);
-      }
-
-      const videoRes = await fetch(falStatus.videoUrl);
-
-      // Verify the response is actually a video before storing it
-      const contentType = videoRes.headers.get('content-type') ?? '';
-      if (!videoRes.ok || !contentType.startsWith('video/')) {
-        throw new Error(`Unexpected content-type from fal.ai: ${contentType}`);
-      }
-
-      const buffer = await videoRes.arrayBuffer();
-      // Namespace by campaign so RLS policies can scope by first path segment
-      const fileName = `${video.campaign_id}/${id}.mp4`;
-
-      const { error: uploadError } = await adminClient.storage
-        .from('campaign-videos')
-        .upload(fileName, buffer, {
-          contentType: 'video/mp4',
-          upsert: true,
-        });
-
-      if (!uploadError) {
-        storagePath = fileName;
-      }
-    } catch {
-      // Upload failure is non-fatal: mark completed with null storage_path so polling stops
-    }
-
-    // Guard against concurrent polls both trying to update — only update if still not completed
-    await adminClient
-      .from('videos')
-      .update({
-        status: 'completed',
-        storage_path: storagePath,
-        duration_seconds: parseInt(CLIP_DURATION, 10),
-      })
-      .eq('id', id)
-      .neq('status', 'completed');
-
+    const { storagePath } = await processCompletedFalVideo(id, video.campaign_id, falStatus.videoUrl);
     return NextResponse.json({ status: 'completed', storage_path: storagePath });
   }
 

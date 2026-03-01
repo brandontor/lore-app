@@ -91,13 +91,17 @@ Write a single video prompt paragraph. No preamble.`;
   return `${STYLE_PREFIXES[style]} ${raw}`;
 }
 
-export async function submitToFal(prompt: string): Promise<{ requestId: string }> {
+export async function submitToFal(
+  prompt: string,
+  webhookUrl?: string
+): Promise<{ requestId: string }> {
   const handle = await fal.queue.submit('fal-ai/kling-video/v1.6/standard/text-to-video', {
     input: {
       prompt,
       duration: CLIP_DURATION,
       aspect_ratio: '16:9',
     },
+    ...(webhookUrl ? { webhookUrl } : {}),
   });
   return { requestId: handle.request_id };
 }
