@@ -59,6 +59,49 @@ describe('CampaignDetailTabs — header buttons', () => {
   });
 });
 
+describe('CampaignDetailTabs — Discord Bot card', () => {
+  it('shows "Not connected" when no channels are linked', () => {
+    renderWithCampaignContext(<CampaignDetailTabs {...baseProps} />);
+    expect(screen.getByText(/not connected/i)).toBeInTheDocument();
+  });
+
+  it('shows channel name and guild name when channels are linked', () => {
+    const props = {
+      ...baseProps,
+      discordChannels: [
+        {
+          channel_id: '111111111111111111',
+          campaign_id: baseProps.campaign.id,
+          created_at: '2024-01-03T10:00:00Z',
+          channel_name: 'session-room',
+          guild_name: 'Adventurers Guild',
+        },
+      ],
+    };
+    renderWithCampaignContext(<CampaignDetailTabs {...props} />);
+    expect(screen.getByText('#session-room')).toBeInTheDocument();
+    expect(screen.getByText(/adventurers guild/i)).toBeInTheDocument();
+  });
+
+  it('falls back to truncated channel_id and "Unknown server" when names are null', () => {
+    const props = {
+      ...baseProps,
+      discordChannels: [
+        {
+          channel_id: '123456789012345678',
+          campaign_id: baseProps.campaign.id,
+          created_at: '2024-01-03T10:00:00Z',
+          channel_name: null,
+          guild_name: null,
+        },
+      ],
+    };
+    renderWithCampaignContext(<CampaignDetailTabs {...props} />);
+    expect(screen.getByText('#12345678…')).toBeInTheDocument();
+    expect(screen.getByText(/unknown server/i)).toBeInTheDocument();
+  });
+});
+
 describe('CampaignDetailTabs — tab content', () => {
   it('shows empty state when transcripts array is empty', async () => {
     const user = userEvent.setup();
