@@ -15,6 +15,21 @@ import type { CampaignWithRole, Transcript, Character, NPC, Location, Video as V
 import type { DiscordChannelConfig } from '@/lib/queries/discordChannels';
 
 const baseTabs = ['Overview', 'Transcripts', 'Characters', 'NPCs', 'Locations', 'Videos'] as const;
+
+function isSafeStorageUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function videoStatusBadgeVariant(status: string): 'default' | 'warning' | 'danger' {
+  if (status === 'error') return 'danger';
+  if (status === 'processing') return 'warning';
+  return 'default';
+}
 type Tab = (typeof baseTabs)[number] | 'Members';
 
 const STATUS_BADGE: Record<string, 'success' | 'warning' | 'default'> = {
@@ -357,23 +372,51 @@ export function CampaignDetailTabs({
               description="Generate a video from your session transcripts."
             />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {videos.map((video) => (
-                <Card key={video.id}>
-                  <CardContent>
-                    <div className="mb-4 flex h-40 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                      <Video className="h-10 w-10 text-zinc-400" />
-                    </div>
-                    <h3 className="mb-1 font-medium text-zinc-900 dark:text-zinc-100">{video.title}</h3>
-                    <div className="flex items-center justify-between text-xs text-zinc-400">
-                      <Badge variant="default">{video.style}</Badge>
-                      <Badge variant={video.status === 'completed' ? 'success' : 'warning'}>
-                        {video.status}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {videos.map((video) => {
+                const isCompleted = video.status === 'completed';
+                const hasKeyframe = video.image_url !== null && video.image_url !== undefined && isSafeStorageUrl(video.image_url);
+                const date = new Date(video.created_at).toLocaleDateString();
+                return (
+                  <Card key={video.id} className="group overflow-hidden">
+                    <CardContent className="p-0">
+                      <Link href={`/videos/${video.id}`}>
+                        <div className="relative flex h-40 items-center justify-center overflow-hidden bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
+                          {hasKeyframe ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={video.image_url!}
+                              alt={video.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Video className="h-10 w-10 text-zinc-400" />
+                          )}
+                          {!isCompleted && (
+                            <span className="absolute bottom-2 right-2">
+                              <Badge variant={videoStatusBadgeVariant(video.status)}>
+                                {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
+                              </Badge>
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="p-4">
+                        <Link href={`/videos/${video.id}`} className="font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">
+                          {video.title}
+                        </Link>
+                        <p className="mt-0.5 text-xs text-zinc-500">{date}</p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <Badge variant="outline">{video.style}</Badge>
+                          {isCompleted && (
+                            <Badge variant="success">Completed</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
