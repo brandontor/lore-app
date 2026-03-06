@@ -26,7 +26,7 @@ const mockRouter = { push: vi.fn(), replace: vi.fn(), refresh: vi.fn() };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(useRouter).mockReturnValue(mockRouter as ReturnType<typeof useRouter>);
+  vi.mocked(useRouter).mockReturnValue(mockRouter as unknown as ReturnType<typeof useRouter>);
   mockToggleSceneSelection.mockResolvedValue({});
   mockExtractScenes.mockResolvedValue({});
 });

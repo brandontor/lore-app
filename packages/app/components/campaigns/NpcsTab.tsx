@@ -2,25 +2,25 @@
 
 import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Plus, Pencil, Trash2, Upload } from 'lucide-react';
+import { Ghost, Plus, Pencil, Trash2, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { CharacterForm } from './CharacterForm';
-import { createCharacter, updateCharacter, deleteCharacter, updateCharacterPortrait } from '@/lib/actions/characters';
+import { NpcForm } from './NpcForm';
+import { createNpc, updateNpc, deleteNpc, updateNpcImage } from '@/lib/actions/npcs';
 import { createClient } from '@/lib/supabase/client';
-import type { Character } from '@lore/shared';
+import type { NPC } from '@lore/shared';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-interface CharactersTabProps {
+interface NpcsTabProps {
   campaignId: string;
-  characters: Character[];
+  npcs: NPC[];
   canWrite: boolean;
 }
 
-export function CharactersTab({ campaignId, characters: initial, canWrite }: CharactersTabProps) {
+export function NpcsTab({ campaignId, npcs: initial, canWrite }: NpcsTabProps) {
   const router = useRouter();
-  const [characters, setCharacters] = useState(initial);
+  const [npcs, setNpcs] = useState(initial);
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -29,60 +29,58 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   async function handleCreate(formData: FormData) {
-    const result = await createCharacter(campaignId, formData);
+    const result = await createNpc(campaignId, formData);
     if (result?.error) return result;
     setShowCreate(false);
     router.refresh();
     return result;
   }
 
-  async function handleUpdate(characterId: string, formData: FormData) {
-    const result = await updateCharacter(characterId, formData);
+  async function handleUpdate(npcId: string, formData: FormData) {
+    const result = await updateNpc(npcId, formData);
     if (result?.error) return result;
     setEditingId(null);
     router.refresh();
     return result;
   }
 
-  function handleDelete(characterId: string, characterName: string) {
-    if (!window.confirm(`Delete ${characterName}? This cannot be undone.`)) return;
+  function handleDelete(npcId: string, npcName: string) {
+    if (!window.confirm(`Delete ${npcName}? This cannot be undone.`)) return;
     startTransition(async () => {
-      const result = await deleteCharacter(characterId);
+      const result = await deleteNpc(npcId);
       if (!result?.error) {
-        delete fileInputRefs.current[characterId];
-        setCharacters((prev) => prev.filter((c) => c.id !== characterId));
+        delete fileInputRefs.current[npcId];
+        setNpcs((prev) => prev.filter((n) => n.id !== npcId));
       }
     });
   }
 
-  async function handlePortraitUpload(char: Character, file: File) {
+  async function handleImageUpload(npc: NPC, file: File) {
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      setUploadError({ id: char.id, message: 'Only JPEG, PNG, WebP, and GIF images are allowed' });
+      setUploadError({ id: npc.id, message: 'Only JPEG, PNG, WebP, and GIF images are allowed' });
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setUploadError({ id: char.id, message: 'Image must be 2MB or smaller' });
+      setUploadError({ id: npc.id, message: 'Image must be 2MB or smaller' });
       return;
     }
 
-    setUploadingId(char.id);
+    setUploadingId(npc.id);
     setUploadError(null);
 
     const supabase = createClient();
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setUploadError({ id: char.id, message: 'Your session has expired — please refresh and try again.' });
+      setUploadError({ id: npc.id, message: 'Your session has expired — please refresh and try again.' });
       setUploadingId(null);
       return;
     }
 
-    // Path: {userId}/{charId}/portrait — deterministic, no orphaned files, matches storage RLS
-    const path = `${user.id}/${char.id}/portrait`;
+    const path = `${user.id}/${npc.id}/portrait`;
 
     const { error: uploadErr } = await supabase.storage
-      .from('character-portraits')
+      .from('npc-portraits')
       .upload(path, file, { upsert: true });
 
     if (uploadErr) {
@@ -91,7 +89,7 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
         uploadErr.message.toLowerCase().includes('jwt') ||
         (uploadErr as { status?: number }).status === 401;
       setUploadError({
-        id: char.id,
+        id: npc.id,
         message: isAuthError
           ? 'Your session has expired — please refresh and try again.'
           : uploadErr.message,
@@ -101,14 +99,14 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
     }
 
     const { data: { publicUrl } } = supabase.storage
-      .from('character-portraits')
+      .from('npc-portraits')
       .getPublicUrl(path);
 
-    const result = await updateCharacterPortrait(char.id, publicUrl);
+    const result = await updateNpcImage(npc.id, publicUrl);
     if (result?.error) {
-      setUploadError({ id: char.id, message: result.error });
+      setUploadError({ id: npc.id, message: result.error });
     } else {
-      setCharacters((prev) => prev.map((c) => c.id === char.id ? { ...c, portrait_url: publicUrl } : c));
+      setNpcs((prev) => prev.map((n) => n.id === npc.id ? { ...n, image_url: publicUrl } : n));
       router.refresh();
     }
     setUploadingId(null);
@@ -123,45 +121,43 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
             className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500"
           >
             <Plus className="h-4 w-4" />
-            Add Character
+            Add NPC
           </button>
         </div>
       )}
 
       {showCreate && (
         <Card>
-          <CardHeader><CardTitle>New Character</CardTitle></CardHeader>
+          <CardHeader><CardTitle>New NPC</CardTitle></CardHeader>
           <CardContent>
-            <CharacterForm
+            <NpcForm
               action={handleCreate}
-              submitLabel="Create Character"
+              submitLabel="Create NPC"
               onCancel={() => setShowCreate(false)}
             />
           </CardContent>
         </Card>
       )}
 
-      {characters.length === 0 && !showCreate ? (
+      {npcs.length === 0 && !showCreate ? (
         <EmptyState
-          icon={User}
-          title="No characters yet"
-          description={canWrite ? "Add your party members to get started." : "Characters will appear here once added."}
+          icon={Ghost}
+          title="No NPCs yet"
+          description={canWrite ? "Add NPCs to populate your world." : "NPCs will appear here once added."}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {characters.map((char) => (
-            <Card key={char.id}>
+          {npcs.map((npc) => (
+            <Card key={npc.id}>
               <CardContent>
-                {editingId === char.id ? (
-                  <CharacterForm
-                    action={(fd) => handleUpdate(char.id, fd)}
+                {editingId === npc.id ? (
+                  <NpcForm
+                    action={(fd) => handleUpdate(npc.id, fd)}
                     defaultValues={{
-                      name: char.name,
-                      class: char.class ?? undefined,
-                      race: char.race ?? undefined,
-                      level: char.level,
-                      appearance: char.appearance ?? undefined,
-                      backstory: char.backstory ?? undefined,
+                      name: npc.name,
+                      role: npc.role ?? undefined,
+                      description: npc.description ?? undefined,
+                      appearance: npc.appearance ?? undefined,
                     }}
                     submitLabel="Save"
                     onCancel={() => setEditingId(null)}
@@ -171,15 +167,15 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                     <div className="mb-3 flex items-start justify-between">
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                          {char.portrait_url ? (
+                          {npc.image_url ? (
                             <img
-                              src={char.portrait_url}
-                              alt={char.name}
+                              src={npc.image_url}
+                              alt={npc.name}
                               loading="lazy"
                               className="h-10 w-10 rounded-full object-cover"
                             />
                           ) : (
-                            <User className="h-5 w-5 text-zinc-500" />
+                            <Ghost className="h-5 w-5 text-zinc-500" />
                           )}
                         </div>
                         {canWrite && (
@@ -188,20 +184,20 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                               type="file"
                               accept="image/*"
                               className="hidden"
-                              ref={(el) => { fileInputRefs.current[char.id] = el; }}
+                              ref={(el) => { fileInputRefs.current[npc.id] = el; }}
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) handlePortraitUpload(char, file);
+                                if (file) handleImageUpload(npc, file);
                                 e.target.value = '';
                               }}
                             />
                             <button
-                              onClick={() => fileInputRefs.current[char.id]?.click()}
-                              disabled={uploadingId === char.id}
+                              onClick={() => fileInputRefs.current[npc.id]?.click()}
+                              disabled={uploadingId === npc.id}
                               className="flex items-center gap-1 text-xs text-zinc-400 transition-colors hover:text-violet-500 disabled:opacity-50"
                             >
                               <Upload className="h-3 w-3" />
-                              {uploadingId === char.id ? 'Uploading…' : 'Portrait'}
+                              {uploadingId === npc.id ? 'Uploading…' : 'Portrait'}
                             </button>
                           </>
                         )}
@@ -209,32 +205,30 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                       {canWrite && (
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => setEditingId(char.id)}
+                            onClick={() => setEditingId(npc.id)}
                             className="rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-                            aria-label="Edit character"
+                            aria-label="Edit NPC"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(char.id, char.name)}
+                            onClick={() => handleDelete(npc.id, npc.name)}
                             className="rounded p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950"
-                            aria-label="Delete character"
+                            aria-label="Delete NPC"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       )}
                     </div>
-                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{char.name}</h3>
-                    <p className="text-sm text-zinc-500">
-                      Level {char.level}
-                      {char.race ? ` ${char.race}` : ''}
-                      {char.class ? ` ${char.class}` : ''}
-                    </p>
-                    {char.appearance && (
-                      <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{char.appearance}</p>
+                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{npc.name}</h3>
+                    {npc.role && (
+                      <p className="text-sm text-zinc-500">{npc.role}</p>
                     )}
-                    {uploadError?.id === char.id && (
+                    {npc.description && (
+                      <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{npc.description}</p>
+                    )}
+                    {uploadError?.id === npc.id && (
                       <p className="mt-1 text-xs text-red-400">{uploadError.message}</p>
                     )}
                   </>

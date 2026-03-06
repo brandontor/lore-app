@@ -33,7 +33,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build -w @lore/shared
-      - run: npm run test:coverage
+      - run: npm run test:coverage -w @lore/app
       - uses: actions/upload-artifact@v4
         if: always()
         with:

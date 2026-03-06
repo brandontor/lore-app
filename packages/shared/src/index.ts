@@ -126,6 +126,29 @@ export interface TranscriptScene {
   created_at: string;
 }
 
+export interface NPC {
+  id: string;
+  campaign_id: string;
+  name: string;
+  role: string | null;
+  description: string | null;
+  appearance: string | null;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Location {
+  id: string;
+  campaign_id: string;
+  name: string;
+  type: string | null;
+  description: string | null;
+  image_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ActionResult<T = undefined> {
   error?: string;
   data?: T;

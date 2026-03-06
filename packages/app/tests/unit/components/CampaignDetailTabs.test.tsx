@@ -7,15 +7,20 @@ import {
   buildCampaignWithRole,
   buildTranscript,
   buildMember,
+  buildNpc,
+  buildLocation,
 } from '../helpers/builders';
 
 const baseProps = {
   campaign: buildCampaignWithRole({ userRole: 'owner' }),
   transcripts: [],
   characters: [],
+  npcs: [],
+  locations: [],
   videos: [],
   members: [],
   discordChannels: [],
+  recentSummaries: [],
 };
 
 describe('CampaignDetailTabs — tab visibility', () => {
@@ -127,5 +132,75 @@ describe('CampaignDetailTabs — tab content', () => {
     renderWithCampaignContext(<CampaignDetailTabs {...props} />);
     // Members stat = members.length + 1 (owner)
     expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  it('hides Members stat for non-owner', () => {
+    const props = {
+      ...baseProps,
+      campaign: buildCampaignWithRole({ userRole: 'read' }),
+      members: [],
+    };
+    renderWithCampaignContext(<CampaignDetailTabs {...props} />);
+    expect(screen.queryByText('Members')).not.toBeInTheDocument();
+  });
+
+  it('shows empty state on NPCs tab when no NPCs exist', async () => {
+    const user = userEvent.setup();
+    renderWithCampaignContext(<CampaignDetailTabs {...baseProps} />);
+    await user.click(screen.getByRole('button', { name: 'NPCs' }));
+    expect(screen.getByText(/no npcs yet/i)).toBeInTheDocument();
+  });
+
+  it('renders NPC cards when NPCs exist', async () => {
+    const user = userEvent.setup();
+    const props = { ...baseProps, npcs: [buildNpc({ name: 'Malachar' })] };
+    renderWithCampaignContext(<CampaignDetailTabs {...props} />);
+    await user.click(screen.getByRole('button', { name: 'NPCs' }));
+    expect(screen.getByText('Malachar')).toBeInTheDocument();
+  });
+
+  it('shows empty state on Locations tab when no locations exist', async () => {
+    const user = userEvent.setup();
+    renderWithCampaignContext(<CampaignDetailTabs {...baseProps} />);
+    await user.click(screen.getByRole('button', { name: 'Locations' }));
+    expect(screen.getByText(/no locations yet/i)).toBeInTheDocument();
+  });
+
+  it('renders Location cards when locations exist', async () => {
+    const user = userEvent.setup();
+    const props = { ...baseProps, locations: [buildLocation({ name: 'The Sunken Citadel' })] };
+    renderWithCampaignContext(<CampaignDetailTabs {...props} />);
+    await user.click(screen.getByRole('button', { name: 'Locations' }));
+    expect(screen.getByText('The Sunken Citadel')).toBeInTheDocument();
+  });
+
+  it('shows empty summaries message when recentSummaries is empty', () => {
+    renderWithCampaignContext(<CampaignDetailTabs {...baseProps} />);
+    expect(screen.getByText(/no session summaries yet/i)).toBeInTheDocument();
+  });
+
+  it('renders summary previews when recentSummaries exist', () => {
+    const props = {
+      ...baseProps,
+      recentSummaries: [
+        buildTranscript({ title: 'Session One', summary: 'The party defeated the goblin king.' }),
+      ],
+    };
+    renderWithCampaignContext(<CampaignDetailTabs {...props} />);
+    expect(screen.getByText('Session One')).toBeInTheDocument();
+    expect(screen.getByText(/goblin king/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /read full summary/i })).toBeInTheDocument();
+  });
+
+  it('shows NPCs and Locations counts in Stats', () => {
+    const props = {
+      ...baseProps,
+      npcs: [buildNpc()],
+      locations: [buildLocation(), buildLocation({ id: '00000000-0000-0000-0007-000000000002', name: 'Tavern' })],
+    };
+    renderWithCampaignContext(<CampaignDetailTabs {...props} />);
+    // Stats card shows label + count pairs; NPCs=1, Locations=2
+    expect(screen.getAllByText('NPCs').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Locations').length).toBeGreaterThanOrEqual(1);
   });
 });

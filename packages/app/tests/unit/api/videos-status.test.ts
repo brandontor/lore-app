@@ -53,6 +53,7 @@ function makeChain(data: unknown, error: unknown = null) {
   // Override single to resolve properly
   chain.single = vi.fn().mockResolvedValue({ data, error });
   // Allow `await chain` (for non-.single() awaits)
+  // @ts-expect-error — makeChain .then mock is intentionally loosely typed
   (chain as unknown as Promise<unknown>).then = (
     resolve: (v: { data: unknown; error: unknown }) => unknown
   ) => Promise.resolve({ data, error }).then(resolve);

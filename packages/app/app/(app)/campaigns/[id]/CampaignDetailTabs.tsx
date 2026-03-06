@@ -9,10 +9,12 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DiscordConnectButton } from './DiscordConnectButton';
 import { CharactersTab } from '@/components/campaigns/CharactersTab';
-import type { CampaignWithRole, Transcript, Character, Video as VideoType, CampaignMember } from '@lore/shared';
+import { NpcsTab } from '@/components/campaigns/NpcsTab';
+import { LocationsTab } from '@/components/campaigns/LocationsTab';
+import type { CampaignWithRole, Transcript, Character, NPC, Location, Video as VideoType, CampaignMember } from '@lore/shared';
 import type { DiscordChannelConfig } from '@/lib/queries/discordChannels';
 
-const baseTabs = ['Overview', 'Transcripts', 'Characters', 'Videos'] as const;
+const baseTabs = ['Overview', 'Transcripts', 'Characters', 'NPCs', 'Locations', 'Videos'] as const;
 type Tab = (typeof baseTabs)[number] | 'Members';
 
 const STATUS_BADGE: Record<string, 'success' | 'warning' | 'default'> = {
@@ -33,12 +35,25 @@ interface Props {
   campaign: CampaignWithRole;
   transcripts: Transcript[];
   characters: Character[];
+  npcs: NPC[];
+  locations: Location[];
   videos: VideoType[];
   members: CampaignMember[];
   discordChannels: DiscordChannelConfig[];
+  recentSummaries: Transcript[];
 }
 
-export function CampaignDetailTabs({ campaign, transcripts, characters, videos, members, discordChannels }: Props) {
+export function CampaignDetailTabs({
+  campaign,
+  transcripts,
+  characters,
+  npcs,
+  locations,
+  videos,
+  members,
+  discordChannels,
+  recentSummaries,
+}: Props) {
   const isOwner = campaign.userRole === 'owner';
   const canWrite = isOwner || campaign.userRole === 'write';
 
@@ -116,6 +131,40 @@ export function CampaignDetailTabs({ campaign, transcripts, characters, videos, 
                 </p>
               </CardContent>
             </Card>
+
+            {/* Recent Session Summaries */}
+            <Card>
+              <CardHeader><CardTitle>Recent Session Summaries</CardTitle></CardHeader>
+              <CardContent>
+                {recentSummaries.length === 0 ? (
+                  <p className="text-sm italic text-zinc-400">
+                    No session summaries yet. Generate one from any transcript.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {recentSummaries.map((t) => (
+                      <div key={t.id} className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0 dark:border-zinc-800">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100 text-sm">{t.title}</span>
+                          {t.session_date && (
+                            <span className="shrink-0 text-xs text-zinc-400">
+                              {new Date(t.session_date).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        <p className="line-clamp-3 text-xs text-zinc-500">{t.summary}</p>
+                        <Link
+                          href={`/transcripts/${t.id}`}
+                          className="mt-1 inline-block text-xs text-violet-600 hover:underline dark:text-violet-400"
+                        >
+                          Read full summary →
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
           <div className="space-y-4">
             <Card>
@@ -124,8 +173,10 @@ export function CampaignDetailTabs({ campaign, transcripts, characters, videos, 
                 {[
                   { label: 'Transcripts', value: transcripts.length },
                   { label: 'Characters', value: characters.length },
+                  { label: 'NPCs', value: npcs.length },
+                  { label: 'Locations', value: locations.length },
                   { label: 'Videos', value: videos.length },
-                  { label: 'Members', value: members.length + 1 },
+                  ...(isOwner ? [{ label: 'Members', value: members.length + 1 }] : []),
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-sm">
                     <span className="text-zinc-500">{label}</span>
@@ -264,6 +315,24 @@ export function CampaignDetailTabs({ campaign, transcripts, characters, videos, 
         <CharactersTab
           campaignId={campaign.id}
           characters={characters}
+          canWrite={canWrite}
+        />
+      )}
+
+      {/* NPCs */}
+      {activeTab === 'NPCs' && (
+        <NpcsTab
+          campaignId={campaign.id}
+          npcs={npcs}
+          canWrite={canWrite}
+        />
+      )}
+
+      {/* Locations */}
+      {activeTab === 'Locations' && (
+        <LocationsTab
+          campaignId={campaign.id}
+          locations={locations}
           canWrite={canWrite}
         />
       )}

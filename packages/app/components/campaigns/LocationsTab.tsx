@@ -2,25 +2,25 @@
 
 import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Plus, Pencil, Trash2, Upload } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { CharacterForm } from './CharacterForm';
-import { createCharacter, updateCharacter, deleteCharacter, updateCharacterPortrait } from '@/lib/actions/characters';
+import { LocationForm } from './LocationForm';
+import { createLocation, updateLocation, deleteLocation, updateLocationImage } from '@/lib/actions/locations';
 import { createClient } from '@/lib/supabase/client';
-import type { Character } from '@lore/shared';
+import type { Location } from '@lore/shared';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-interface CharactersTabProps {
+interface LocationsTabProps {
   campaignId: string;
-  characters: Character[];
+  locations: Location[];
   canWrite: boolean;
 }
 
-export function CharactersTab({ campaignId, characters: initial, canWrite }: CharactersTabProps) {
+export function LocationsTab({ campaignId, locations: initial, canWrite }: LocationsTabProps) {
   const router = useRouter();
-  const [characters, setCharacters] = useState(initial);
+  const [locations, setLocations] = useState(initial);
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -29,60 +29,58 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   async function handleCreate(formData: FormData) {
-    const result = await createCharacter(campaignId, formData);
+    const result = await createLocation(campaignId, formData);
     if (result?.error) return result;
     setShowCreate(false);
     router.refresh();
     return result;
   }
 
-  async function handleUpdate(characterId: string, formData: FormData) {
-    const result = await updateCharacter(characterId, formData);
+  async function handleUpdate(locationId: string, formData: FormData) {
+    const result = await updateLocation(locationId, formData);
     if (result?.error) return result;
     setEditingId(null);
     router.refresh();
     return result;
   }
 
-  function handleDelete(characterId: string, characterName: string) {
-    if (!window.confirm(`Delete ${characterName}? This cannot be undone.`)) return;
+  function handleDelete(locationId: string, locationName: string) {
+    if (!window.confirm(`Delete ${locationName}? This cannot be undone.`)) return;
     startTransition(async () => {
-      const result = await deleteCharacter(characterId);
+      const result = await deleteLocation(locationId);
       if (!result?.error) {
-        delete fileInputRefs.current[characterId];
-        setCharacters((prev) => prev.filter((c) => c.id !== characterId));
+        delete fileInputRefs.current[locationId];
+        setLocations((prev) => prev.filter((l) => l.id !== locationId));
       }
     });
   }
 
-  async function handlePortraitUpload(char: Character, file: File) {
+  async function handleImageUpload(location: Location, file: File) {
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      setUploadError({ id: char.id, message: 'Only JPEG, PNG, WebP, and GIF images are allowed' });
+      setUploadError({ id: location.id, message: 'Only JPEG, PNG, WebP, and GIF images are allowed' });
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setUploadError({ id: char.id, message: 'Image must be 2MB or smaller' });
+      setUploadError({ id: location.id, message: 'Image must be 2MB or smaller' });
       return;
     }
 
-    setUploadingId(char.id);
+    setUploadingId(location.id);
     setUploadError(null);
 
     const supabase = createClient();
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setUploadError({ id: char.id, message: 'Your session has expired — please refresh and try again.' });
+      setUploadError({ id: location.id, message: 'Your session has expired — please refresh and try again.' });
       setUploadingId(null);
       return;
     }
 
-    // Path: {userId}/{charId}/portrait — deterministic, no orphaned files, matches storage RLS
-    const path = `${user.id}/${char.id}/portrait`;
+    const path = `${user.id}/${location.id}/image`;
 
     const { error: uploadErr } = await supabase.storage
-      .from('character-portraits')
+      .from('location-images')
       .upload(path, file, { upsert: true });
 
     if (uploadErr) {
@@ -91,7 +89,7 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
         uploadErr.message.toLowerCase().includes('jwt') ||
         (uploadErr as { status?: number }).status === 401;
       setUploadError({
-        id: char.id,
+        id: location.id,
         message: isAuthError
           ? 'Your session has expired — please refresh and try again.'
           : uploadErr.message,
@@ -101,14 +99,14 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
     }
 
     const { data: { publicUrl } } = supabase.storage
-      .from('character-portraits')
+      .from('location-images')
       .getPublicUrl(path);
 
-    const result = await updateCharacterPortrait(char.id, publicUrl);
+    const result = await updateLocationImage(location.id, publicUrl);
     if (result?.error) {
-      setUploadError({ id: char.id, message: result.error });
+      setUploadError({ id: location.id, message: result.error });
     } else {
-      setCharacters((prev) => prev.map((c) => c.id === char.id ? { ...c, portrait_url: publicUrl } : c));
+      setLocations((prev) => prev.map((l) => l.id === location.id ? { ...l, image_url: publicUrl } : l));
       router.refresh();
     }
     setUploadingId(null);
@@ -123,45 +121,42 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
             className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500"
           >
             <Plus className="h-4 w-4" />
-            Add Character
+            Add Location
           </button>
         </div>
       )}
 
       {showCreate && (
         <Card>
-          <CardHeader><CardTitle>New Character</CardTitle></CardHeader>
+          <CardHeader><CardTitle>New Location</CardTitle></CardHeader>
           <CardContent>
-            <CharacterForm
+            <LocationForm
               action={handleCreate}
-              submitLabel="Create Character"
+              submitLabel="Create Location"
               onCancel={() => setShowCreate(false)}
             />
           </CardContent>
         </Card>
       )}
 
-      {characters.length === 0 && !showCreate ? (
+      {locations.length === 0 && !showCreate ? (
         <EmptyState
-          icon={User}
-          title="No characters yet"
-          description={canWrite ? "Add your party members to get started." : "Characters will appear here once added."}
+          icon={MapPin}
+          title="No locations yet"
+          description={canWrite ? "Add locations to map your world." : "Locations will appear here once added."}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {characters.map((char) => (
-            <Card key={char.id}>
+          {locations.map((loc) => (
+            <Card key={loc.id}>
               <CardContent>
-                {editingId === char.id ? (
-                  <CharacterForm
-                    action={(fd) => handleUpdate(char.id, fd)}
+                {editingId === loc.id ? (
+                  <LocationForm
+                    action={(fd) => handleUpdate(loc.id, fd)}
                     defaultValues={{
-                      name: char.name,
-                      class: char.class ?? undefined,
-                      race: char.race ?? undefined,
-                      level: char.level,
-                      appearance: char.appearance ?? undefined,
-                      backstory: char.backstory ?? undefined,
+                      name: loc.name,
+                      type: loc.type ?? undefined,
+                      description: loc.description ?? undefined,
                     }}
                     submitLabel="Save"
                     onCancel={() => setEditingId(null)}
@@ -170,16 +165,16 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                   <>
                     <div className="mb-3 flex items-start justify-between">
                       <div className="flex flex-col items-center gap-1">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                          {char.portrait_url ? (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                          {loc.image_url ? (
                             <img
-                              src={char.portrait_url}
-                              alt={char.name}
+                              src={loc.image_url}
+                              alt={loc.name}
                               loading="lazy"
-                              className="h-10 w-10 rounded-full object-cover"
+                              className="h-10 w-10 rounded-lg object-cover"
                             />
                           ) : (
-                            <User className="h-5 w-5 text-zinc-500" />
+                            <MapPin className="h-5 w-5 text-zinc-500" />
                           )}
                         </div>
                         {canWrite && (
@@ -188,20 +183,20 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                               type="file"
                               accept="image/*"
                               className="hidden"
-                              ref={(el) => { fileInputRefs.current[char.id] = el; }}
+                              ref={(el) => { fileInputRefs.current[loc.id] = el; }}
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
-                                if (file) handlePortraitUpload(char, file);
+                                if (file) handleImageUpload(loc, file);
                                 e.target.value = '';
                               }}
                             />
                             <button
-                              onClick={() => fileInputRefs.current[char.id]?.click()}
-                              disabled={uploadingId === char.id}
+                              onClick={() => fileInputRefs.current[loc.id]?.click()}
+                              disabled={uploadingId === loc.id}
                               className="flex items-center gap-1 text-xs text-zinc-400 transition-colors hover:text-violet-500 disabled:opacity-50"
                             >
                               <Upload className="h-3 w-3" />
-                              {uploadingId === char.id ? 'Uploading…' : 'Portrait'}
+                              {uploadingId === loc.id ? 'Uploading…' : 'Image'}
                             </button>
                           </>
                         )}
@@ -209,32 +204,30 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
                       {canWrite && (
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => setEditingId(char.id)}
+                            onClick={() => setEditingId(loc.id)}
                             className="rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-                            aria-label="Edit character"
+                            aria-label="Edit location"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(char.id, char.name)}
+                            onClick={() => handleDelete(loc.id, loc.name)}
                             className="rounded p-1 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950"
-                            aria-label="Delete character"
+                            aria-label="Delete location"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       )}
                     </div>
-                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{char.name}</h3>
-                    <p className="text-sm text-zinc-500">
-                      Level {char.level}
-                      {char.race ? ` ${char.race}` : ''}
-                      {char.class ? ` ${char.class}` : ''}
-                    </p>
-                    {char.appearance && (
-                      <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{char.appearance}</p>
+                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{loc.name}</h3>
+                    {loc.type && (
+                      <p className="text-sm capitalize text-zinc-500">{loc.type}</p>
                     )}
-                    {uploadError?.id === char.id && (
+                    {loc.description && (
+                      <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{loc.description}</p>
+                    )}
+                    {uploadError?.id === loc.id && (
                       <p className="mt-1 text-xs text-red-400">{uploadError.message}</p>
                     )}
                   </>
