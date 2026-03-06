@@ -13,9 +13,12 @@ const baseProps = {
   campaign: buildCampaignWithRole({ userRole: 'owner' }),
   transcripts: [],
   characters: [],
+  npcs: [],
+  locations: [],
   videos: [],
   members: [],
   discordChannels: [],
+  recentSummaries: [],
 };
 
 describe('CampaignDetailTabs — tab visibility', () => {

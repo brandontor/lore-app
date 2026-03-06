@@ -81,6 +81,22 @@ export async function getScenesByTranscript(transcriptId: string): Promise<Trans
   return data as TranscriptScene[];
 }
 
+export async function getRecentTranscriptsWithSummaries(
+  campaignId: string,
+  limit = 3
+): Promise<Transcript[]> {
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient
+    .from('transcripts')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .not('summary', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data as Transcript[];
+}
+
 export async function getAllScenesByTranscripts(transcriptIds: string[]): Promise<TranscriptScene[]> {
   if (transcriptIds.length === 0) return [];
 
