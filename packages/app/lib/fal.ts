@@ -1,6 +1,6 @@
 import { fal } from '@fal-ai/client';
 import OpenAI from 'openai';
-import type { TranscriptScene, Character, VideoStyle } from '@lore/shared';
+import type { TranscriptScene, Character, NPC, VideoStyle } from '@lore/shared';
 
 fal.config({ credentials: process.env.FAL_KEY });
 
@@ -9,7 +9,7 @@ const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
-export const CLIP_DURATION = '5' as const;
+export const CLIP_DURATION = '10' as const;
 
 export const FAL_IMAGE_MODEL = 'fal-ai/flux/dev';
 export const FAL_VIDEO_MODEL = 'fal-ai/kling-video/v1.6/standard/image-to-video';
@@ -41,10 +41,10 @@ export function isFalVideoUrl(url: string): boolean {
 }
 
 const STYLE_PREFIXES: Record<VideoStyle, string> = {
-  cinematic: 'cinematic epic fantasy film,',
-  anime: 'anime japanese animation style,',
-  painterly: 'digital oil painting fantasy art,',
-  'dark-fantasy': 'gritty dark fantasy atmospheric,',
+  cinematic: 'Epic cinematic fantasy film, anamorphic lens, dramatic volumetric lighting, shallow depth of field,',
+  anime: 'Japanese anime fantasy style, vibrant saturated colors, expressive dynamic poses, Studio Ghibli inspired,',
+  painterly: 'Digital oil painting, rich impasto textures, warm candlelight palette, fantasy concept art,',
+  'dark-fantasy': 'Gritty dark fantasy, desaturated moody palette, atmospheric fog, candlelit shadows,',
 };
 
 interface FalVideoResult {
@@ -60,10 +60,12 @@ interface FalQueueStatus {
 }
 
 export async function buildVideoPrompt(
-  scene: Pick<TranscriptScene, 'title' | 'description' | 'mood'>,
+  scene: Pick<TranscriptScene, 'title' | 'description' | 'mood' | 'raw_speaker_lines'>,
   style: VideoStyle,
   campaignName: string,
-  characters: Pick<Character, 'name' | 'appearance' | 'race' | 'class'>[]
+  campaignSetting: string | null,
+  characters: Pick<Character, 'name' | 'appearance' | 'race' | 'class'>[],
+  npcs: Pick<NPC, 'name' | 'appearance' | 'description'>[]
 ): Promise<{ imagePrompt: string; motionPrompt: string }> {
   if (!openai) throw new Error('OPENAI_API_KEY not configured');
 
@@ -72,17 +74,24 @@ export async function buildVideoPrompt(
     .map((c) => `${c.name}${c.race ? ` (${c.race}${c.class ? ` ${c.class}` : ''})` : ''}: ${c.appearance}`)
     .join('\n');
 
+  const npcDescriptions = npcs
+    .filter((n) => n.appearance || n.description)
+    .map((n) => `${n.name}: ${[n.appearance, n.description].filter(Boolean).join(' — ')}`)
+    .join('\n');
+
+  const keyDialogue = scene.raw_speaker_lines.slice(0, 5).join('\n');
+
   const systemPrompt = `You are a video prompt engineer specialising in fantasy AI video generation for ${style} style.
 Return a JSON object with exactly two fields:
-- "imagePrompt": 50–70 words describing the static visual composition, setting, character appearances, and lighting — what FLUX should paint.
-- "motionPrompt": 30–50 words describing camera movement, character actions, and how the scene animates — what Kling should follow.
+- "imagePrompt": 80–100 words describing the static visual composition, environment, atmosphere, lighting, and character/NPC appearances — what FLUX should paint. Avoid making faces the primary focus; prefer body language, silhouettes, and environmental storytelling. Include specific lighting conditions and atmosphere. Reference character or NPC appearances by name when relevant.
+- "motionPrompt": 50–70 words describing camera movement, character actions, environmental motion, and how the scene animates — what Kling should follow.
 Respond with only valid JSON. No markdown, no preamble.`;
 
-  const userPrompt = `Campaign: "${campaignName}"
+  const userPrompt = `Campaign: "${campaignName}"${campaignSetting ? `\nWorld/Setting: ${campaignSetting}` : ''}
 Scene: "${scene.title}"
 Mood: ${scene.mood}
 Description: ${scene.description}
-${characterDescriptions ? `Characters:\n${characterDescriptions}` : ''}`;
+${characterDescriptions ? `Characters:\n${characterDescriptions}` : ''}${npcDescriptions ? `\nNPCs:\n${npcDescriptions}` : ''}${keyDialogue ? `\nKey dialogue:\n${keyDialogue}` : ''}`;
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
@@ -90,7 +99,7 @@ ${characterDescriptions ? `Characters:\n${characterDescriptions}` : ''}`;
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    max_tokens: 300,
+    max_tokens: 400,
     temperature: 0.6,
     response_format: { type: 'json_object' },
   });
@@ -130,7 +139,7 @@ export async function generateKeyframe(
       prompt: imagePrompt,
       image_size: 'landscape_4_3',
       num_images: 1,
-      guidance_scale: 3.5,
+      guidance_scale: 5.0,
       // output_format and negative_prompt are valid FLUX dev params but not yet
       // reflected in the fal SDK's TypeScript types for this endpoint.
       output_format: 'jpeg', // forces JPEG — keeps extension/MIME consistent
@@ -181,7 +190,7 @@ export async function submitImageToVideoFal(
       negative_prompt: NEGATIVE_PROMPT,
       // cfg_scale controls prompt adherence (0–1). Not yet in the fal SDK's
       // TypeScript types for this endpoint, so cast to any.
-      cfg_scale: 0.5,
+      cfg_scale: 0.7,
     } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     ...(webhookUrl ? { webhookUrl } : {}),
   });
