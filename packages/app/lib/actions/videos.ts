@@ -53,20 +53,25 @@ export async function generateVideo(
     { data: scenes },
     { data: campaign },
     { data: characters },
+    { data: npcs },
   ] = await Promise.all([
     adminClient
       .from('transcript_scenes')
-      .select('id, transcript_id, title, description, mood')
+      .select('id, transcript_id, title, description, mood, raw_speaker_lines')
       .in('id', newSceneIds)
       .eq('campaign_id', campaignId),
     adminClient
       .from('campaigns')
-      .select('name')
+      .select('name, setting, system')
       .eq('id', campaignId)
       .single(),
     adminClient
       .from('characters')
       .select('id, name, appearance, race, class')
+      .eq('campaign_id', campaignId),
+    adminClient
+      .from('npcs')
+      .select('name, appearance, description')
       .eq('campaign_id', campaignId),
   ]);
 
@@ -74,6 +79,7 @@ export async function generateVideo(
   if (!scenes || scenes.length === 0) return { error: 'No scenes found' };
 
   const characterList = characters ?? [];
+  const npcList = npcs ?? [];
 
   const webhookSecret = process.env.WEBHOOK_SECRET;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -89,7 +95,9 @@ export async function generateVideo(
         scene as Parameters<typeof buildVideoPrompt>[0],
         style,
         campaign.name,
-        characterList
+        campaign.setting ?? null,
+        characterList,
+        npcList
       );
 
       const sceneTitle = scene.title || 'Untitled Scene';

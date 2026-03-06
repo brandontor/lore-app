@@ -60,6 +60,7 @@ const mockScene = {
   title: 'Dragon Awakens',
   description: 'A dragon rises.',
   mood: 'dramatic',
+  raw_speaker_lines: [],
 };
 
 beforeEach(() => {
@@ -87,20 +88,23 @@ function mockDedup(existingSceneIds: string[] = []) {
   );
 }
 
-// Helper: mock the three parallel admin fetches after dedup
+// Helper: mock the four parallel admin fetches after dedup
 function mockDataFetches({
   scenes = [mockScene],
-  campaign = { name: 'Test Campaign' },
+  campaign = { name: 'Test Campaign', setting: null },
   characters = [],
+  npcs = [],
 }: {
   scenes?: unknown[] | null;
   campaign?: unknown | null;
   characters?: unknown[];
+  npcs?: unknown[];
 }) {
   mockFrom
     .mockReturnValueOnce(makeChain(scenes))       // transcript_scenes
     .mockReturnValueOnce(makeChain(campaign))      // campaigns
-    .mockReturnValueOnce(makeChain(characters));   // characters
+    .mockReturnValueOnce(makeChain(characters))    // characters
+    .mockReturnValueOnce(makeChain(npcs));         // npcs
 }
 
 // Helper: mock the per-scene DB writes.
@@ -230,6 +234,8 @@ describe('generateVideo', () => {
       expect.objectContaining({ id: SCENE_ID, title: 'Dragon Awakens' }),
       'anime',
       'Test Campaign',
+      null,
+      [],
       []
     );
   });
@@ -336,7 +342,7 @@ describe('generateVideo', () => {
     await generateVideo(CAMPAIGN_ID, [SCENE_ID], 'cinematic', 'My Video');
     // buildVideoPrompt runs first (before insert), then insert, then fal.ai calls
     const bvpOrder = mockBuildVideoPrompt.mock.invocationCallOrder[0];
-    const insertOrder = (mockFrom as ReturnType<typeof vi.fn>).mock.invocationCallOrder[4]; // 5th call: dedup+3fetches+INSERT
+    const insertOrder = (mockFrom as ReturnType<typeof vi.fn>).mock.invocationCallOrder[5]; // 6th call: dedup+4fetches+INSERT
     const keyframeOrder = mockGenerateKeyframe.mock.invocationCallOrder[0];
     expect(bvpOrder).toBeLessThan(insertOrder);
     expect(insertOrder).toBeLessThan(keyframeOrder);
