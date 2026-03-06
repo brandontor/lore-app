@@ -176,7 +176,7 @@ export function CampaignDetailTabs({
                   { label: 'NPCs', value: npcs.length },
                   { label: 'Locations', value: locations.length },
                   { label: 'Videos', value: videos.length },
-                  { label: 'Members', value: members.length + 1 },
+                  ...(isOwner ? [{ label: 'Members', value: members.length + 1 }] : []),
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-sm">
                     <span className="text-zinc-500">{label}</span>

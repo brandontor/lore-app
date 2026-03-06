@@ -7,6 +7,8 @@ import type {
   TranscriptScene,
   Video,
   Profile,
+  NPC,
+  Location,
 } from '@lore/shared';
 
 let _counter = 0;
@@ -113,6 +115,38 @@ export function buildScene(overrides: Partial<TranscriptScene> = {}): Transcript
     confidence_score: 0.8,
     selected_for_video: true,
     created_at: '2024-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export const NPC_ID      = '00000000-0000-0000-0006-000000000001';
+export const LOCATION_ID = '00000000-0000-0000-0007-000000000001';
+
+export function buildNpc(overrides: Partial<NPC> = {}): NPC {
+  return {
+    id: NPC_ID,
+    campaign_id: CAMPAIGN_ID,
+    name: 'Malachar the Betrayer',
+    role: 'Villain',
+    description: 'Former court advisor turned necromancer.',
+    appearance: 'Gaunt figure in tattered black robes.',
+    image_url: null,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export function buildLocation(overrides: Partial<Location> = {}): Location {
+  return {
+    id: LOCATION_ID,
+    campaign_id: CAMPAIGN_ID,
+    name: 'The Sunken Citadel',
+    type: 'dungeon',
+    description: 'An ancient fortress half-submerged in a flooded canyon.',
+    image_url: null,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }

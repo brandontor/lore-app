@@ -77,7 +77,7 @@ export function LocationsTab({ campaignId, locations: initial, canWrite }: Locat
       return;
     }
 
-    const path = `${user.id}/${location.id}/portrait`;
+    const path = `${user.id}/${location.id}/image`;
 
     const { error: uploadErr } = await supabase.storage
       .from('location-images')
@@ -106,6 +106,7 @@ export function LocationsTab({ campaignId, locations: initial, canWrite }: Locat
     if (result?.error) {
       setUploadError({ id: location.id, message: result.error });
     } else {
+      setLocations((prev) => prev.map((l) => l.id === location.id ? { ...l, image_url: publicUrl } : l));
       router.refresh();
     }
     setUploadingId(null);

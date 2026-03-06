@@ -78,14 +78,14 @@ export async function updateNpcImage(
   npcId: string,
   imageUrl: string
 ): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
   const allowedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/npc-portraits/`;
   if (!imageUrl.startsWith(allowedPrefix)) {
     return { error: 'Invalid image URL' };
   }
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Not authenticated' };
 
   const adminClient = createAdminClient();
 

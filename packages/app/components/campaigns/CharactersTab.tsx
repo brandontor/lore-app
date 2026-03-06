@@ -108,6 +108,7 @@ export function CharactersTab({ campaignId, characters: initial, canWrite }: Cha
     if (result?.error) {
       setUploadError({ id: char.id, message: result.error });
     } else {
+      setCharacters((prev) => prev.map((c) => c.id === char.id ? { ...c, portrait_url: publicUrl } : c));
       router.refresh();
     }
     setUploadingId(null);

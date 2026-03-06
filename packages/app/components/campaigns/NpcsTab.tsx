@@ -106,6 +106,7 @@ export function NpcsTab({ campaignId, npcs: initial, canWrite }: NpcsTabProps) {
     if (result?.error) {
       setUploadError({ id: npc.id, message: result.error });
     } else {
+      setNpcs((prev) => prev.map((n) => n.id === npc.id ? { ...n, image_url: publicUrl } : n));
       router.refresh();
     }
     setUploadingId(null);

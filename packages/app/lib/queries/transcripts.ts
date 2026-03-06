@@ -91,6 +91,8 @@ export async function getRecentTranscriptsWithSummaries(
     .select('*')
     .eq('campaign_id', campaignId)
     .not('summary', 'is', null)
+    .neq('summary', '')
+    .order('session_date', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error || !data) return [];
