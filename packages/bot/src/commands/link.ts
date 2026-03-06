@@ -20,10 +20,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         return;
     }
 
+    const guildId = interaction.guildId;
+    if (!guildId) {
+        await interaction.reply({ content: "❌ This command can only be used in a server.", ephemeral: true });
+        return;
+    }
+
     const campaignId = interaction.options.getString("campaign_id", true).trim();
     const channelId = member.voice.channel.id;
     const channelName = member.voice.channel.name;
-    const guildId = interaction.guildId;
     const guildName = interaction.guild?.name ?? null;
 
     // Verify campaign exists

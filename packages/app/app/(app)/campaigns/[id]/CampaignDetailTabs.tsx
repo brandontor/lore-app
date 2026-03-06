@@ -178,7 +178,7 @@ export function CampaignDetailTabs({ campaign, transcripts, characters, videos, 
                           <span className="text-zinc-500">
                             {ch.guild_name ?? 'Unknown server'}
                             {' · '}
-                            {new Date(ch.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            {new Date(ch.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>
                         </li>
                       ))}
