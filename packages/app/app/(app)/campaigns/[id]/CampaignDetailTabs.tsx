@@ -167,8 +167,22 @@ export function CampaignDetailTabs({ campaign, transcripts, characters, videos, 
                   <>
                     <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
                       <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      {discordChannels.length} channel{discordChannels.length > 1 ? 's' : ''} linked
+                      {discordChannels.length} channel{discordChannels.length !== 1 ? 's' : ''} linked
                     </div>
+                    <ul className="space-y-1.5">
+                      {discordChannels.map((ch) => (
+                        <li key={ch.channel_id} className="flex flex-col text-xs">
+                          <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                            #{ch.channel_name ?? `${ch.channel_id.slice(0, 8)}…`}
+                          </span>
+                          <span className="text-zinc-500">
+                            {ch.guild_name ?? 'Unknown server'}
+                            {' · '}
+                            {new Date(ch.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                     <DiscordConnectButton campaignId={campaign.id} hasChannels={true} />
                   </>
                 )}

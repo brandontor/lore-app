@@ -23,6 +23,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const campaignId = interaction.options.getString("campaign_id", true).trim();
     const channelId = member.voice.channel.id;
     const channelName = member.voice.channel.name;
+    const guildId = interaction.guildId;
+    const guildName = interaction.guild?.name ?? null;
 
     // Verify campaign exists
     const { data: campaign, error: campaignError } = await supabase
@@ -39,7 +41,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // Upsert channel→campaign mapping
     const { error: upsertError } = await supabase
         .from("discord_channel_configs")
-        .upsert({ channel_id: channelId, campaign_id: campaignId, linked_by: null }, { onConflict: "channel_id" });
+        .upsert(
+            { channel_id: channelId, campaign_id: campaignId, linked_by: null, guild_id: guildId, guild_name: guildName, channel_name: channelName },
+            { onConflict: "channel_id" },
+        );
 
     if (upsertError) {
         console.error("Failed to upsert discord_channel_configs:", upsertError);
