@@ -358,22 +358,48 @@ export function CampaignDetailTabs({
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              {videos.map((video) => (
-                <Card key={video.id}>
-                  <CardContent>
-                    <div className="mb-4 flex h-40 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                      <Video className="h-10 w-10 text-zinc-400" />
-                    </div>
-                    <h3 className="mb-1 font-medium text-zinc-900 dark:text-zinc-100">{video.title}</h3>
-                    <div className="flex items-center justify-between text-xs text-zinc-400">
-                      <Badge variant="default">{video.style}</Badge>
-                      <Badge variant={video.status === 'completed' ? 'success' : 'warning'}>
-                        {video.status}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {videos.map((video) => {
+                const isCompleted = video.status === 'completed';
+                const hasKeyframe = video.image_url !== null && video.image_url !== undefined;
+                return (
+                  <Card key={video.id} className="group overflow-hidden">
+                    <CardContent className="p-0">
+                      <Link href={`/videos/${video.id}`}>
+                        <div className="relative flex h-40 items-center justify-center overflow-hidden bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
+                          {hasKeyframe ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={video.image_url!}
+                              alt={video.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Video className="h-10 w-10 text-zinc-400" />
+                          )}
+                          {!isCompleted && (
+                            <span className="absolute bottom-2 right-2">
+                              <Badge variant={video.status === 'error' ? 'danger' : 'warning'}>
+                                {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
+                              </Badge>
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="p-4">
+                        <Link href={`/videos/${video.id}`} className="font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">
+                          {video.title}
+                        </Link>
+                        <div className="mt-2 flex items-center justify-between">
+                          <Badge variant="outline">{video.style}</Badge>
+                          {isCompleted && (
+                            <Badge variant="success">Completed</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
