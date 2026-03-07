@@ -3,6 +3,15 @@ export type CampaignStatus = 'active' | 'paused' | 'completed' | 'archived';
 export type TranscriptStatus = 'pending' | 'processing' | 'processed' | 'error';
 export type VideoStatus = 'pending' | 'processing' | 'completed' | 'error';
 export type VideoStyle = 'cinematic' | 'anime' | 'painterly' | 'dark-fantasy';
+export type CameraPreset =
+  | 'auto'
+  | 'slow-dolly-in'
+  | 'tracking-shot'
+  | 'crane-up'
+  | 'crash-zoom'
+  | 'low-angle-dolly'
+  | 'rack-focus-pan'
+  | 'static-wide';
 export type TranscriptSource = 'discord' | 'manual' | 'upload';
 
 export interface Profile {
@@ -95,6 +104,9 @@ export interface Video {
   fal_model: string;
   scene_id: string | null;
   image_url: string | null;
+  camera_preset: CameraPreset;
+  motion_intensity: number;
+  clip_duration: number;
   requested_by: string;
   created_at: string;
   updated_at: string;

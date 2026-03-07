@@ -3,16 +3,27 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { buildVideoPrompt, generateKeyframe, submitImageToVideoFal, FAL_VIDEO_MODEL } from '@/lib/fal';
+import {
+  buildVideoPrompt,
+  generateKeyframe,
+  submitImageToVideoFal,
+  FAL_VIDEO_MODEL,
+  CAMERA_PRESET_LABELS,
+  DEFAULT_MOTION_INTENSITY,
+  DEFAULT_CLIP_DURATION,
+} from '@/lib/fal';
 import { uploadKeyframe } from '@/lib/video-processing';
-import type { ActionResult, VideoStyle } from '@lore/shared';
+import type { ActionResult, VideoStyle, CameraPreset } from '@lore/shared';
 import { MAX_SCENES } from '@/lib/video-constants';
 
 export async function generateVideo(
   campaignId: string,
   sceneIds: string[],
   style: VideoStyle,
-  title: string
+  title: string,
+  cameraPreset: CameraPreset = 'auto',
+  motionIntensity: number = DEFAULT_MOTION_INTENSITY,
+  clipDuration: number = DEFAULT_CLIP_DURATION
 ): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -116,6 +127,9 @@ export async function generateVideo(
           fal_model: FAL_VIDEO_MODEL,
           scene_id: scene.id,
           requested_by: user.id,
+          camera_preset: cameraPreset,
+          motion_intensity: motionIntensity,
+          clip_duration: clipDuration,
         })
         .select('id')
         .single();
@@ -133,10 +147,18 @@ export async function generateVideo(
           .update({ image_url: storageUrl })
           .eq('id', video.id);
 
+        // Append named camera preset to motion prompt when user picked one
+        const cameraLabel = cameraPreset !== 'auto' ? ` ${CAMERA_PRESET_LABELS[cameraPreset]}` : '';
+        const finalMotionPrompt = `${motionPrompt}${cameraLabel}`.trim();
+
         // Submit Kling image-to-video job using the permanent Supabase CDN URL.
         // The fal.ai temporary URL (falImageUrl) may expire before Kling starts
         // executing the job; the storage URL never expires.
-        const { requestId } = await submitImageToVideoFal(storageUrl, motionPrompt, webhookUrl);
+        const { requestId } = await submitImageToVideoFal(storageUrl, finalMotionPrompt, {
+          webhookUrl,
+          cfgScale: motionIntensity,
+          duration: clipDuration,
+        });
         const { error: falReqUpdateError } = await adminClient
           .from('videos')
           .update({ fal_request_id: requestId })

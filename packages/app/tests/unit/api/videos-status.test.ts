@@ -35,9 +35,9 @@ vi.mock('@/lib/supabase/server', () => ({
 // ---- fal mock ----
 const mockGetFalStatus = vi.fn();
 vi.mock('@/lib/fal', () => ({
-  getFalStatus:  (...args: unknown[]) => mockGetFalStatus(...args),
-  isFalVideoUrl: (url: string) => url.startsWith('https://v3.fal.media/'),
-  CLIP_DURATION: '5',
+  getFalStatus:        (...args: unknown[]) => mockGetFalStatus(...args),
+  isFalVideoUrl:       (url: string) => url.startsWith('https://v3.fal.media/'),
+  DEFAULT_CLIP_DURATION: 5,
 }));
 
 // ---- global fetch mock ----

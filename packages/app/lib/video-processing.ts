@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
-import { isFalVideoUrl, CLIP_DURATION } from '@/lib/fal';
+import { isFalVideoUrl, DEFAULT_CLIP_DURATION } from '@/lib/fal';
 
 /**
  * Downloads a keyframe image from a fal.ai temporary URL and uploads it
@@ -113,7 +113,7 @@ export async function processCompletedFalVideo(
     .update({
       status: 'completed',
       storage_path: storagePath,
-      duration_seconds: parseInt(CLIP_DURATION, 10),
+      duration_seconds: DEFAULT_CLIP_DURATION,
     })
     .eq('id', videoId)
     .neq('status', 'completed');
