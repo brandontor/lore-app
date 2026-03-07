@@ -166,7 +166,8 @@ describe('GET /api/videos/[id]/status', () => {
   it('rejects fal.ai video URLs not on the allowlist and marks completed with null path', async () => {
     const updateChain = makeChain(null);
     mockFrom
-      .mockReturnValueOnce(makeChain(makePendingVideo()))
+      .mockReturnValueOnce(makeChain(makePendingVideo()))          // video fetch
+      .mockReturnValueOnce(makeChain({ clip_duration: 5 }))        // clip_duration fetch
       .mockReturnValueOnce(updateChain);
     mockGetFalStatus.mockResolvedValue({
       status: 'COMPLETED',
@@ -183,7 +184,8 @@ describe('GET /api/videos/[id]/status', () => {
   it('marks completed with null storage_path when content-type is not video/', async () => {
     const updateChain = makeChain(null);
     mockFrom
-      .mockReturnValueOnce(makeChain(makePendingVideo()))
+      .mockReturnValueOnce(makeChain(makePendingVideo()))          // video fetch
+      .mockReturnValueOnce(makeChain({ clip_duration: 5 }))        // clip_duration fetch
       .mockReturnValueOnce(updateChain);
     mockGetFalStatus.mockResolvedValue({
       status: 'COMPLETED',
@@ -203,7 +205,8 @@ describe('GET /api/videos/[id]/status', () => {
   it('uses .neq guard on DB update to prevent concurrent-poll race', async () => {
     const updateChain = makeChain(null);
     mockFrom
-      .mockReturnValueOnce(makeChain(makePendingVideo()))
+      .mockReturnValueOnce(makeChain(makePendingVideo()))          // video fetch
+      .mockReturnValueOnce(makeChain({ clip_duration: 10 }))       // clip_duration fetch
       .mockReturnValueOnce(updateChain);
     mockGetFalStatus.mockResolvedValue({
       status: 'COMPLETED',

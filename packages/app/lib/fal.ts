@@ -92,7 +92,8 @@ export async function buildVideoPrompt(
   campaignName: string,
   campaignSetting: string | null,
   characters: Pick<Character, 'name' | 'appearance' | 'race' | 'class'>[],
-  npcs: Pick<NPC, 'name' | 'appearance' | 'description'>[]
+  npcs: Pick<NPC, 'name' | 'appearance' | 'description'>[],
+  cameraPreset: CameraPreset = 'auto'
 ): Promise<{ imagePrompt: string; motionPrompt: string }> {
   if (!openai) throw new Error('OPENAI_API_KEY not configured');
 
@@ -108,10 +109,14 @@ export async function buildVideoPrompt(
 
   const keyDialogue = (scene.raw_speaker_lines ?? []).slice(0, 5).join('\n');
 
+  const cameraInstruction = cameraPreset !== 'auto'
+    ? `The user has selected this camera move — you MUST use it in the motionPrompt: "${CAMERA_PRESET_LABELS[cameraPreset]}"`
+    : `Choose camera movement based on mood:${MOOD_CAMERA_HINTS}`;
+
   const systemPrompt = `You are a video prompt engineer specialising in fantasy AI video generation for ${style} style.
 Return a JSON object with exactly two fields:
 - "imagePrompt": 80–100 words using the 4-part formula: [Scene Setting] + [Subject Action] + [Camera/Composition] + [Stylistic Keywords]. Describe environment, atmosphere, lighting, and character appearances — prefer body language and silhouettes over facial close-ups. Include specific lighting conditions.
-- "motionPrompt": 50–70 words using the 4-part formula: [Camera Movement] + [Subject Motion] + [Environmental Motion] + [Pacing/Mood]. Choose camera movement based on mood:${MOOD_CAMERA_HINTS}
+- "motionPrompt": 50–70 words using the 4-part formula: [Camera Movement] + [Subject Motion] + [Environmental Motion] + [Pacing/Mood]. ${cameraInstruction}
 Respond with only valid JSON. No markdown, no preamble.`;
 
   const contextSections = [
@@ -220,12 +225,15 @@ export async function submitImageToVideoFal(
   }
 ): Promise<{ requestId: string }> {
   const { webhookUrl, cfgScale = DEFAULT_MOTION_INTENSITY, duration = DEFAULT_CLIP_DURATION } = options ?? {};
+  // Whitelist duration to the two values Kling accepts; reject anything else explicitly
+  const durationStr: '5' | '10' = duration === 10 ? '10' : '5';
   const handle = await fal.queue.submit(FAL_VIDEO_MODEL, {
     input: {
       image_url: imageUrl,
       prompt: motionPrompt,
-      duration: String(duration) as '5' | '10',
+      duration: durationStr,
       aspect_ratio: '16:9',
+      // negative_prompt is supported by Kling v2.1 pro on fal.ai per their input schema
       negative_prompt: KLING_NEGATIVE_PROMPT,
       // cfg_scale controls prompt adherence (0–1). Not yet in the fal SDK's
       // TypeScript types for this endpoint, so cast to any.

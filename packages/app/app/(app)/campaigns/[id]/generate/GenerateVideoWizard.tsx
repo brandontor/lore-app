@@ -538,7 +538,7 @@ export function GenerateVideoWizard({
         {step < 4 ? (
           <Button
             onClick={step === 1 ? goToStep2 : () => setStep((s) => s + 1)}
-            disabled={step === 1 && selectedTranscripts.length === 0}
+            disabled={(step === 1 && selectedTranscripts.length === 0) || (step === 3 && !selectedStyle)}
           >
             Next
             <ChevronRight className="h-4 w-4" />

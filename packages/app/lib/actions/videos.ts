@@ -8,7 +8,6 @@ import {
   generateKeyframe,
   submitImageToVideoFal,
   FAL_VIDEO_MODEL,
-  CAMERA_PRESET_LABELS,
   DEFAULT_MOTION_INTENSITY,
   DEFAULT_CLIP_DURATION,
 } from '@/lib/fal';
@@ -35,6 +34,10 @@ export async function generateVideo(
   if (sceneIds.length > MAX_SCENES) {
     return { error: `Too many scenes selected (max ${MAX_SCENES}). Please reduce your selection.` };
   }
+
+  // Server-side sanitisation of user-controlled generation params
+  const safeIntensity = Math.min(0.8, Math.max(0.3, motionIntensity));
+  const safeDuration = clipDuration === 10 ? 10 : 5; // whitelist — only 5s or 10s
 
   const adminClient = createAdminClient();
 
@@ -108,7 +111,8 @@ export async function generateVideo(
         campaign.name,
         campaign.setting ?? null,
         characterList,
-        npcList
+        npcList,
+        cameraPreset
       );
 
       const sceneTitle = scene.title || 'Untitled Scene';
@@ -128,8 +132,8 @@ export async function generateVideo(
           scene_id: scene.id,
           requested_by: user.id,
           camera_preset: cameraPreset,
-          motion_intensity: motionIntensity,
-          clip_duration: clipDuration,
+          motion_intensity: safeIntensity,
+          clip_duration: safeDuration,
         })
         .select('id')
         .single();
@@ -147,17 +151,14 @@ export async function generateVideo(
           .update({ image_url: storageUrl })
           .eq('id', video.id);
 
-        // Append named camera preset to motion prompt when user picked one
-        const cameraLabel = cameraPreset !== 'auto' ? ` ${CAMERA_PRESET_LABELS[cameraPreset]}` : '';
-        const finalMotionPrompt = `${motionPrompt}${cameraLabel}`.trim();
-
         // Submit Kling image-to-video job using the permanent Supabase CDN URL.
         // The fal.ai temporary URL (falImageUrl) may expire before Kling starts
         // executing the job; the storage URL never expires.
-        const { requestId } = await submitImageToVideoFal(storageUrl, finalMotionPrompt, {
+        // cameraPreset is now encoded into motionPrompt by buildVideoPrompt via GPT.
+        const { requestId } = await submitImageToVideoFal(storageUrl, motionPrompt, {
           webhookUrl,
-          cfgScale: motionIntensity,
-          duration: clipDuration,
+          cfgScale: safeIntensity,
+          duration: safeDuration,
         });
         const { error: falReqUpdateError } = await adminClient
           .from('videos')

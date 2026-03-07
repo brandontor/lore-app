@@ -6,7 +6,6 @@ const mockIsFalVideoUrl = vi.fn();
 
 vi.mock('@/lib/fal', () => ({
   isFalVideoUrl: (url: string) => mockIsFalVideoUrl(url),
-  DEFAULT_CLIP_DURATION: 5,
 }));
 
 // ---- Supabase mock ----

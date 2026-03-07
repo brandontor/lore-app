@@ -25,7 +25,6 @@ vi.mock('@/lib/fal', () => ({
   generateKeyframe:      (...args: unknown[]) => mockGenerateKeyframe(...args),
   submitImageToVideoFal: (...args: unknown[]) => mockSubmitImageToVideo(...args),
   FAL_VIDEO_MODEL: 'fal-ai/kling-video/v2.1/pro/image-to-video',
-  CAMERA_PRESET_LABELS: { auto: '', 'slow-dolly-in': 'Slow dolly in.', 'tracking-shot': 'Tracking shot following the action.', 'crane-up': 'Crane up to reveal scale.', 'crash-zoom': 'Crash zoom for dramatic impact.', 'low-angle-dolly': 'Low angle dolly for heroic framing.', 'rack-focus-pan': 'Rack focus pan for mystery and environmental reveal.', 'static-wide': 'Static wide shot, slow drift.' },
   DEFAULT_MOTION_INTENSITY: 0.5,
   DEFAULT_CLIP_DURATION: 5,
 }));
@@ -239,7 +238,8 @@ describe('generateVideo', () => {
       'Test Campaign',
       null,
       [],
-      []
+      [],
+      'auto'
     );
   });
 
