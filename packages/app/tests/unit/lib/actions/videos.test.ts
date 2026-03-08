@@ -24,7 +24,9 @@ vi.mock('@/lib/fal', () => ({
   buildVideoPrompt:      (...args: unknown[]) => mockBuildVideoPrompt(...args),
   generateKeyframe:      (...args: unknown[]) => mockGenerateKeyframe(...args),
   submitImageToVideoFal: (...args: unknown[]) => mockSubmitImageToVideo(...args),
-  FAL_VIDEO_MODEL: 'fal-ai/kling-video/v1.6/standard/image-to-video',
+  FAL_VIDEO_MODEL: 'fal-ai/kling-video/v2.1/pro/image-to-video',
+  DEFAULT_MOTION_INTENSITY: 0.5,
+  DEFAULT_CLIP_DURATION: 5,
 }));
 
 // ---- video-processing mock ----
@@ -236,7 +238,8 @@ describe('generateVideo', () => {
       'Test Campaign',
       null,
       [],
-      []
+      [],
+      'auto'
     );
   });
 
@@ -253,7 +256,7 @@ describe('generateVideo', () => {
     expect(mockSubmitImageToVideo).toHaveBeenCalledWith(
       'https://supabase.co/storage/v1/object/public/campaign-videos/camp/vid_keyframe.jpg',
       expect.any(String),
-      undefined
+      expect.objectContaining({ cfgScale: 0.5, duration: 5 })
     );
   });
 
@@ -328,7 +331,7 @@ describe('generateVideo', () => {
       .mockReturnValueOnce(makeChain(null));
     await generateVideo(CAMPAIGN_ID, [SCENE_ID], 'cinematic', 'Test');
     expect(insertChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ fal_model: 'fal-ai/kling-video/v1.6/standard/image-to-video' })
+      expect.objectContaining({ fal_model: 'fal-ai/kling-video/v2.1/pro/image-to-video' })
     );
   });
 

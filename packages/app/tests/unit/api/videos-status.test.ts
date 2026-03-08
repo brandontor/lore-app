@@ -35,9 +35,9 @@ vi.mock('@/lib/supabase/server', () => ({
 // ---- fal mock ----
 const mockGetFalStatus = vi.fn();
 vi.mock('@/lib/fal', () => ({
-  getFalStatus:  (...args: unknown[]) => mockGetFalStatus(...args),
-  isFalVideoUrl: (url: string) => url.startsWith('https://v3.fal.media/'),
-  CLIP_DURATION: '5',
+  getFalStatus:        (...args: unknown[]) => mockGetFalStatus(...args),
+  isFalVideoUrl:       (url: string) => url.startsWith('https://v3.fal.media/'),
+  DEFAULT_CLIP_DURATION: 5,
 }));
 
 // ---- global fetch mock ----
@@ -166,7 +166,8 @@ describe('GET /api/videos/[id]/status', () => {
   it('rejects fal.ai video URLs not on the allowlist and marks completed with null path', async () => {
     const updateChain = makeChain(null);
     mockFrom
-      .mockReturnValueOnce(makeChain(makePendingVideo()))
+      .mockReturnValueOnce(makeChain(makePendingVideo()))          // video fetch
+      .mockReturnValueOnce(makeChain({ clip_duration: 5 }))        // clip_duration fetch
       .mockReturnValueOnce(updateChain);
     mockGetFalStatus.mockResolvedValue({
       status: 'COMPLETED',
@@ -183,7 +184,8 @@ describe('GET /api/videos/[id]/status', () => {
   it('marks completed with null storage_path when content-type is not video/', async () => {
     const updateChain = makeChain(null);
     mockFrom
-      .mockReturnValueOnce(makeChain(makePendingVideo()))
+      .mockReturnValueOnce(makeChain(makePendingVideo()))          // video fetch
+      .mockReturnValueOnce(makeChain({ clip_duration: 5 }))        // clip_duration fetch
       .mockReturnValueOnce(updateChain);
     mockGetFalStatus.mockResolvedValue({
       status: 'COMPLETED',
@@ -203,7 +205,8 @@ describe('GET /api/videos/[id]/status', () => {
   it('uses .neq guard on DB update to prevent concurrent-poll race', async () => {
     const updateChain = makeChain(null);
     mockFrom
-      .mockReturnValueOnce(makeChain(makePendingVideo()))
+      .mockReturnValueOnce(makeChain(makePendingVideo()))          // video fetch
+      .mockReturnValueOnce(makeChain({ clip_duration: 10 }))       // clip_duration fetch
       .mockReturnValueOnce(updateChain);
     mockGetFalStatus.mockResolvedValue({
       status: 'COMPLETED',

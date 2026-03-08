@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
-import { isFalVideoUrl, CLIP_DURATION } from '@/lib/fal';
+import { isFalVideoUrl } from '@/lib/fal';
 
 /**
  * Downloads a keyframe image from a fal.ai temporary URL and uploads it
@@ -74,6 +74,14 @@ export async function processCompletedFalVideo(
   const adminClient = createAdminClient();
   let storagePath: string | null = null;
 
+  // Fetch clip_duration so we record the actual user-chosen duration, not a hardcoded default
+  const { data: videoRow } = await adminClient
+    .from('videos')
+    .select('clip_duration')
+    .eq('id', videoId)
+    .single();
+  const clipDuration: number = videoRow?.clip_duration ?? 5;
+
   try {
     // Validate the URL comes from an expected fal.ai hostname before fetching
     if (!isFalVideoUrl(falVideoUrl)) {
@@ -113,7 +121,7 @@ export async function processCompletedFalVideo(
     .update({
       status: 'completed',
       storage_path: storagePath,
-      duration_seconds: parseInt(CLIP_DURATION, 10),
+      duration_seconds: clipDuration,
     })
     .eq('id', videoId)
     .neq('status', 'completed');

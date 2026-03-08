@@ -10,13 +10,25 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SceneCard } from "@/components/transcripts/SceneCard";
 import { generateVideo } from "@/lib/actions/videos";
 import { MAX_SCENES } from "@/lib/video-constants";
-import type { Transcript, Character, TranscriptScene, VideoStyle } from "@lore/shared";
+import { DEFAULT_MOTION_INTENSITY, DEFAULT_CLIP_DURATION } from "@/lib/fal";
+import type { Transcript, Character, TranscriptScene, VideoStyle, CameraPreset } from "@lore/shared";
 
 const steps = [
   { id: 1, label: "Select Transcripts" },
   { id: 2, label: "Select Scenes" },
   { id: 3, label: "Style & Tone" },
   { id: 4, label: "Review & Generate" },
+];
+
+const cameraPresets: { id: CameraPreset; label: string; description: string }[] = [
+  { id: "auto", label: "Auto", description: "AI picks camera based on scene mood" },
+  { id: "slow-dolly-in", label: "Slow Dolly In", description: "Emotional intensity, character reveal" },
+  { id: "tracking-shot", label: "Tracking Shot", description: "Follows action laterally" },
+  { id: "crane-up", label: "Crane Up", description: "Reveals scale, triumphant moments" },
+  { id: "crash-zoom", label: "Crash Zoom", description: "Dramatic impact, battle starts" },
+  { id: "low-angle-dolly", label: "Low Angle Dolly", description: "Heroic framing" },
+  { id: "rack-focus-pan", label: "Rack Focus Pan", description: "Mystery, environmental reveals" },
+  { id: "static-wide", label: "Static Wide", description: "Melancholic, contemplative" },
 ];
 
 const styles: { id: VideoStyle; label: string; description: string }[] = [
@@ -50,6 +62,9 @@ export function GenerateVideoWizard({
   const [selectedTranscripts, setSelectedTranscripts] = useState<string[]>([]);
   const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<VideoStyle | null>(null);
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>('auto');
+  const [motionIntensity, setMotionIntensity] = useState(DEFAULT_MOTION_INTENSITY);
+  const [clipDuration, setClipDuration] = useState(DEFAULT_CLIP_DURATION);
   const [title, setTitle] = useState('');
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -252,44 +267,145 @@ export function GenerateVideoWizard({
 
       {/* Step 3: Style & Tone */}
       {step === 3 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5" />
-              Style & Tone
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-zinc-500">
-              Choose the visual style for your generated video.
-            </p>
-            {styles.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedStyle(s.id)}
-                className={`flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
-                  selectedStyle === s.id
-                    ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
-                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700"
-                }`}
-              >
-                <div
-                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+        <div className="space-y-4">
+          {/* Visual Style */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Visual Style
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-zinc-500">
+                Choose the visual style for your generated video.
+              </p>
+              {styles.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedStyle(s.id)}
+                  className={`flex w-full items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
                     selectedStyle === s.id
-                      ? "border-violet-600 bg-violet-600"
-                      : "border-zinc-300 dark:border-zinc-600"
+                      ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
+                      : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700"
                   }`}
                 >
-                  {selectedStyle === s.id && <div className="h-2 w-2 rounded-full bg-white" />}
+                  <div
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                      selectedStyle === s.id
+                        ? "border-violet-600 bg-violet-600"
+                        : "border-zinc-300 dark:border-zinc-600"
+                    }`}
+                  >
+                    {selectedStyle === s.id && <div className="h-2 w-2 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{s.label}</p>
+                    <p className="text-sm text-zinc-500">{s.description}</p>
+                  </div>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Camera Movement */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Camera Movement</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 text-sm text-zinc-500">
+                Select a named camera move, or let the AI choose based on scene mood.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {cameraPresets.map((cp) => (
+                  <button
+                    key={cp.id}
+                    onClick={() => setCameraPreset(cp.id)}
+                    className={`flex items-start gap-2 rounded-lg border p-3 text-left transition-colors ${
+                      cameraPreset === cp.id
+                        ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
+                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700"
+                    }`}
+                  >
+                    <div
+                      className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                        cameraPreset === cp.id
+                          ? "border-violet-600 bg-violet-600"
+                          : "border-zinc-300 dark:border-zinc-600"
+                      }`}
+                    >
+                      {cameraPreset === cp.id && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{cp.label}</p>
+                      <p className="text-xs text-zinc-500">{cp.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Motion Intensity + Clip Duration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Motion Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Motion Intensity */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label htmlFor="motion-intensity" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    Motion Intensity
+                  </label>
+                  <span className="text-xs text-zinc-500">
+                    {motionIntensity <= 0.35 ? "Fluid / Creative" : motionIntensity >= 0.7 ? "Precise / Strict" : "Balanced"}
+                  </span>
                 </div>
-                <div>
-                  <p className="font-medium text-zinc-900 dark:text-zinc-100">{s.label}</p>
-                  <p className="text-sm text-zinc-500">{s.description}</p>
+                <input
+                  id="motion-intensity"
+                  type="range"
+                  min={0.3}
+                  max={0.8}
+                  step={0.05}
+                  value={motionIntensity}
+                  onChange={(e) => setMotionIntensity(parseFloat(e.target.value))}
+                  className="w-full accent-violet-600"
+                />
+                <div className="mt-1 flex justify-between text-xs text-zinc-400">
+                  <span>Fluid</span>
+                  <span>Balanced</span>
+                  <span>Precise</span>
                 </div>
-              </button>
-            ))}
-          </CardContent>
-        </Card>
+              </div>
+
+              {/* Clip Duration */}
+              <div>
+                <p className="mb-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">Clip Duration</p>
+                <div className="flex gap-3">
+                  {[
+                    { value: 5, label: "5 seconds", hint: "Focused, coherent motion" },
+                    { value: 10, label: "10 seconds", hint: "More coverage, may drift" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setClipDuration(opt.value)}
+                      className={`flex-1 rounded-lg border p-3 text-left transition-colors ${
+                        clipDuration === opt.value
+                          ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
+                          : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700"
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{opt.label}</p>
+                      <p className="text-xs text-zinc-500">{opt.hint}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Step 4: Review & Generate */}
@@ -358,6 +474,16 @@ export function GenerateVideoWizard({
                 }
               </div>
               <div>
+                <p className="mb-2 text-sm font-medium text-zinc-500">Camera / Motion</p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">{cameraPresets.find((cp) => cp.id === cameraPreset)?.label ?? cameraPreset}</Badge>
+                  <Badge variant="outline">
+                    {motionIntensity <= 0.35 ? "Fluid" : motionIntensity >= 0.7 ? "Precise" : "Balanced"} intensity
+                  </Badge>
+                  <Badge variant="outline">{clipDuration}s clip</Badge>
+                </div>
+              </div>
+              <div>
                 <p className="mb-2 text-sm font-medium text-zinc-500">Party Characters</p>
                 {characters.length > 0 ? (
                   <ul className="space-y-2">
@@ -412,7 +538,7 @@ export function GenerateVideoWizard({
         {step < 4 ? (
           <Button
             onClick={step === 1 ? goToStep2 : () => setStep((s) => s + 1)}
-            disabled={step === 1 && selectedTranscripts.length === 0}
+            disabled={(step === 1 && selectedTranscripts.length === 0) || (step === 3 && !selectedStyle)}
           >
             Next
             <ChevronRight className="h-4 w-4" />
@@ -427,7 +553,10 @@ export function GenerateVideoWizard({
                   campaignId,
                   selectedSceneIds,
                   selectedStyle!,
-                  title.trim()
+                  title.trim(),
+                  cameraPreset,
+                  motionIntensity,
+                  clipDuration
                 );
                 if (result?.error) {
                   setGenerateError(result.error);

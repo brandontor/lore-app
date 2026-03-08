@@ -3,16 +3,26 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { buildVideoPrompt, generateKeyframe, submitImageToVideoFal, FAL_VIDEO_MODEL } from '@/lib/fal';
+import {
+  buildVideoPrompt,
+  generateKeyframe,
+  submitImageToVideoFal,
+  FAL_VIDEO_MODEL,
+  DEFAULT_MOTION_INTENSITY,
+  DEFAULT_CLIP_DURATION,
+} from '@/lib/fal';
 import { uploadKeyframe } from '@/lib/video-processing';
-import type { ActionResult, VideoStyle } from '@lore/shared';
+import type { ActionResult, VideoStyle, CameraPreset } from '@lore/shared';
 import { MAX_SCENES } from '@/lib/video-constants';
 
 export async function generateVideo(
   campaignId: string,
   sceneIds: string[],
   style: VideoStyle,
-  title: string
+  title: string,
+  cameraPreset: CameraPreset = 'auto',
+  motionIntensity: number = DEFAULT_MOTION_INTENSITY,
+  clipDuration: number = DEFAULT_CLIP_DURATION
 ): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -24,6 +34,10 @@ export async function generateVideo(
   if (sceneIds.length > MAX_SCENES) {
     return { error: `Too many scenes selected (max ${MAX_SCENES}). Please reduce your selection.` };
   }
+
+  // Server-side sanitisation of user-controlled generation params
+  const safeIntensity = Math.min(0.8, Math.max(0.3, motionIntensity));
+  const safeDuration = clipDuration === 10 ? 10 : 5; // whitelist — only 5s or 10s
 
   const adminClient = createAdminClient();
 
@@ -97,7 +111,8 @@ export async function generateVideo(
         campaign.name,
         campaign.setting ?? null,
         characterList,
-        npcList
+        npcList,
+        cameraPreset
       );
 
       const sceneTitle = scene.title || 'Untitled Scene';
@@ -116,6 +131,9 @@ export async function generateVideo(
           fal_model: FAL_VIDEO_MODEL,
           scene_id: scene.id,
           requested_by: user.id,
+          camera_preset: cameraPreset,
+          motion_intensity: safeIntensity,
+          clip_duration: safeDuration,
         })
         .select('id')
         .single();
@@ -136,7 +154,12 @@ export async function generateVideo(
         // Submit Kling image-to-video job using the permanent Supabase CDN URL.
         // The fal.ai temporary URL (falImageUrl) may expire before Kling starts
         // executing the job; the storage URL never expires.
-        const { requestId } = await submitImageToVideoFal(storageUrl, motionPrompt, webhookUrl);
+        // cameraPreset is now encoded into motionPrompt by buildVideoPrompt via GPT.
+        const { requestId } = await submitImageToVideoFal(storageUrl, motionPrompt, {
+          webhookUrl,
+          cfgScale: safeIntensity,
+          duration: safeDuration,
+        });
         const { error: falReqUpdateError } = await adminClient
           .from('videos')
           .update({ fal_request_id: requestId })
