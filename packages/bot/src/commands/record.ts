@@ -44,7 +44,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             guildId,
             adapterCreator: member.guild.voiceAdapterCreator,
             selfDeaf: false,
-            daveEncryption: false, // opt out of E2EE — @snazzah/davey key exchange doesn't complete reliably
         });
         console.log(`✅ Joined voice channel: ${channelName}`);
     }
