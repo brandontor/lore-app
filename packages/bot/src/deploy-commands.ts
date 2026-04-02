@@ -29,4 +29,8 @@ export async function deployCommands({ guildId }: DeployCommandsProps) {
 }
 
 // Called directly via `npm run deploy:commands`
-deployCommands({ guildId: config.GUILD_ID });
+if (config.GUILD_ID) {
+    deployCommands({ guildId: config.GUILD_ID });
+} else {
+    console.error("GUILD_ID is not set — skipping command deployment.");
+}

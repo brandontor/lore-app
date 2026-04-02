@@ -2,6 +2,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
 import { getVoiceConnection } from "@discordjs/voice";
 import { getSession, clearSession, type TranscriptLine } from "../lib/sessionState.js";
+import { stopCheckpointTimer } from "../lib/checkpointing.js";
 import { supabase } from "../lib/supabase.js";
 
 export const data = new SlashCommandBuilder()
@@ -31,11 +32,55 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         console.log("🛑 Voice connection destroyed.");
     }
 
+    // Flush checkpoint and clear timer before computing final values
+    await stopCheckpointTimer(guildId);
+
     const durationMs = Date.now() - session.startedAt.getTime();
     const durationMinutes = Math.round(durationMs / 60000);
     const sessionDate = session.startedAt.toISOString().split("T")[0]; // YYYY-MM-DD
+    const content = session.lines.map((l) => l.text).join("\n") || "(no speech captured)";
 
-    // Look up campaign via channel config
+    // --- Path A: checkpoint row already exists (campaign was linked at record time) ---
+    if (session.transcriptId && session.campaignId) {
+        const campaignId = session.campaignId;
+
+        // Count existing transcripts for session numbering (exclude this in_progress row)
+        const { count } = await supabase
+            .from("transcripts")
+            .select("id", { count: "exact", head: true })
+            .eq("campaign_id", campaignId)
+            .neq("id", session.transcriptId);
+
+        const sessionNumber = (count ?? 0) + 1;
+        const title = session.sessionTitle
+            ? `Session ${sessionNumber} — ${session.sessionTitle}`
+            : `Session ${sessionNumber} — ${sessionDate}`;
+
+        const { error: updateError } = await supabase
+            .from("transcripts")
+            .update({
+                title,
+                session_number: sessionNumber,
+                content,
+                status: "processed",
+                duration_minutes: durationMinutes,
+            })
+            .eq("id", session.transcriptId);
+
+        clearSession(guildId);
+
+        if (updateError) {
+            console.error("Failed to finalize transcript:", updateError);
+            await interaction.editReply("❌ Recording stopped but failed to save transcript. Check bot logs.");
+            return;
+        }
+
+        const speakerStats = buildSpeakerStats(session.lines);
+        await interaction.editReply({ embeds: [buildEmbed(title, sessionNumber, durationMinutes, session.lines.length, session.transcriptId, sessionDate, speakerStats)] });
+        return;
+    }
+
+    // --- Path B: no checkpoint row (no campaign linked at record time) ---
     const { data: channelConfig } = await supabase
         .from("discord_channel_configs")
         .select("campaign_id")
@@ -52,22 +97,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const campaignId = channelConfig.campaign_id;
 
-    // Count existing transcripts for session numbering
     const { count } = await supabase
         .from("transcripts")
         .select("id", { count: "exact", head: true })
         .eq("campaign_id", campaignId);
 
     const sessionNumber = (count ?? 0) + 1;
-
-    // Build title
     const title = session.sessionTitle
         ? `Session ${sessionNumber} — ${session.sessionTitle}`
         : `Session ${sessionNumber} — ${sessionDate}`;
 
-    const content = session.lines.map((l) => l.text).join("\n") || "(no speech captured)";
-
-    // Insert transcript
     const { data: transcript, error: insertError } = await supabase
         .from("transcripts")
         .insert({
@@ -92,17 +131,27 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         return;
     }
 
-    // Per-speaker word count for embed
     const speakerStats = buildSpeakerStats(session.lines);
+    await interaction.editReply({ embeds: [buildEmbed(title, sessionNumber, durationMinutes, session.lines.length, transcript.id, sessionDate, speakerStats)] });
+}
 
+function buildEmbed(
+    title: string,
+    sessionNumber: number,
+    durationMinutes: number,
+    lineCount: number,
+    transcriptId: string,
+    sessionDate: string,
+    speakerStats: { name: string; words: number }[],
+) {
     const embed = new EmbedBuilder()
         .setTitle(`🎬 Session Saved: ${title}`)
         .setColor(0x5865f2)
         .addFields(
             { name: "Session #", value: String(sessionNumber), inline: true },
             { name: "Duration", value: `${durationMinutes} min`, inline: true },
-            { name: "Lines", value: String(session.lines.length), inline: true },
-            { name: "Transcript ID", value: `\`${transcript.id}\``, inline: false },
+            { name: "Lines", value: String(lineCount), inline: true },
+            { name: "Transcript ID", value: `\`${transcriptId}\``, inline: false },
         )
         .setFooter({ text: `Session date: ${sessionDate}` });
 
@@ -114,7 +163,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         });
     }
 
-    await interaction.editReply({ embeds: [embed] });
+    return embed;
 }
 
 function buildSpeakerStats(lines: TranscriptLine[]): { name: string; words: number }[] {

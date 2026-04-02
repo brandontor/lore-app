@@ -6,7 +6,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsup src/index.ts --minify --external sodium-native --external @discordjs/opus --external opusscript --external prism-media",
-    "deploy:commands": "tsx src/deploy-commands.ts"
+    "deploy:commands": "tsx src/deploy-commands.ts",
+    "clear:global-commands": "tsx src/clear-global-commands.ts"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",

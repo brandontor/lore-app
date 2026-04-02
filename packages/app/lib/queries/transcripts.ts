@@ -8,6 +8,7 @@ export async function getTranscriptsByCampaign(campaignId: string): Promise<Tran
     .from('transcripts')
     .select('*')
     .eq('campaign_id', campaignId)
+    .neq('status', 'in_progress')
     .order('session_number', { ascending: true, nullsFirst: false });
 
   if (error || !data) return [];
@@ -36,6 +37,7 @@ export async function getAllUserTranscripts(): Promise<Transcript[]> {
     .from('transcripts')
     .select('*')
     .in('campaign_id', campaignIds)
+    .neq('status', 'in_progress')
     .order('created_at', { ascending: false });
 
   if (error || !data) return [];
@@ -49,6 +51,7 @@ export async function getTranscriptById(id: string): Promise<Transcript | null> 
     .from('transcripts')
     .select('*')
     .eq('id', id)
+    .neq('status', 'in_progress')
     .single();
 
   if (error || !data) return null;

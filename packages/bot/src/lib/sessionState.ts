@@ -10,6 +10,9 @@ interface SessionEntry {
     startedAt: Date;
     lines: TranscriptLine[];
     isPaused: boolean;
+    transcriptId: string | null;
+    campaignId: string | null;
+    checkpointInterval: ReturnType<typeof setInterval> | null;
 }
 
 const sessions = new Map<string, SessionEntry>();
@@ -27,6 +30,9 @@ export function startSession(
         startedAt: new Date(),
         lines: [],
         isPaused: false,
+        transcriptId: null,
+        campaignId: null,
+        checkpointInterval: null,
     });
 }
 
@@ -53,8 +59,25 @@ export function insertLine(guildId: string, ts: number, text: string): void {
     session.lines.splice(lo, 0, entry);
 }
 
+export function setTranscriptMeta(guildId: string, transcriptId: string, campaignId: string): void {
+    const session = sessions.get(guildId);
+    if (session) {
+        session.transcriptId = transcriptId;
+        session.campaignId = campaignId;
+    }
+}
+
+export function setCheckpointInterval(guildId: string, interval: ReturnType<typeof setInterval>): void {
+    const session = sessions.get(guildId);
+    if (session) session.checkpointInterval = interval;
+}
+
 export function getSession(guildId: string): SessionEntry | undefined {
     return sessions.get(guildId);
+}
+
+export function getAllSessions(): Map<string, SessionEntry> {
+    return sessions;
 }
 
 export function clearSession(guildId: string): void {
