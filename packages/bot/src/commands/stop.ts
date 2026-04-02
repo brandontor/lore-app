@@ -1,7 +1,7 @@
 // src/commands/stop.ts
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
 import { getVoiceConnection } from "@discordjs/voice";
-import { getSession, clearSession } from "../lib/sessionState.js";
+import { getSession, clearSession, type TranscriptLine } from "../lib/sessionState.js";
 import { supabase } from "../lib/supabase.js";
 
 export const data = new SlashCommandBuilder()
@@ -65,7 +65,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         ? `Session ${sessionNumber} — ${session.sessionTitle}`
         : `Session ${sessionNumber} — ${sessionDate}`;
 
-    const content = session.lines.join("\n") || "(no speech captured)";
+    const content = session.lines.map((l) => l.text).join("\n") || "(no speech captured)";
 
     // Insert transcript
     const { data: transcript, error: insertError } = await supabase
@@ -117,11 +117,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.editReply({ embeds: [embed] });
 }
 
-function buildSpeakerStats(lines: string[]): { name: string; words: number }[] {
+function buildSpeakerStats(lines: TranscriptLine[]): { name: string; words: number }[] {
     const wordCounts = new Map<string, number>();
-    for (const line of lines) {
+    for (const entry of lines) {
         // Format: [HH:MM:SS] Username: text
-        const match = line.match(/^\[\d{2}:\d{2}:\d{2}\] (.+?): (.+)$/);
+        const match = entry.text.match(/^\[\d{2}:\d{2}:\d{2}\] (.+?): (.+)$/);
         if (!match) continue;
         const [, speaker, text] = match;
         wordCounts.set(speaker, (wordCounts.get(speaker) ?? 0) + text.split(/\s+/).length);

@@ -208,13 +208,16 @@ Discord bot, public pages, notifications.
 | I-2 | Per-utterance Whisper transcription saved as timestamped lines | ✅ |
 | I-3 | `/stop` command: save full transcript to Supabase, post embed summary | ✅ |
 | I-4 | Channel → campaign routing via `discord_channel_configs` table | ✅ |
-| I-5 | DAVE E2EE support (blocked on `@discordjs/voice` fix, issue #11419) | 🚧 |
+| I-5 | DAVE E2EE support (`@discordjs/voice` upgraded to 0.19.2, `daveEncryption: false` removed) | ✅ |
 | I-8 | `/pause` command: temporarily suspend audio capture without leaving the voice channel | ✅ |
 | I-9 | `/resume` command: resume audio capture after a pause | ✅ |
 | I-10 | Pause/resume tracked in-memory via `isPaused` flag on `SessionEntry`; no lines are written while paused | ✅ |
 | I-11 | Campaign Overview tab Discord Bot card shows each linked channel's name and guild name (stored at `/link` time); falls back to truncated channel ID for pre-existing rows | ✅ |
-
-> **Note:** `daveEncryption: false` workaround is active. Discord enforces DAVE for all voice channels from March 2026; recording may break until `@discordjs/voice` releases a fix (likely 0.19.1+).
+| I-12 | Transcript crash resilience: periodically flush in-memory lines to a draft transcript row in Supabase so a process crash only loses the tail of the session rather than the entire transcript | ❌ |
+| I-13 | Whisper hallucination filter: near-silent clips pass the 5 KB size guard but contain no real speech — Whisper echoes the prompt ("Dungeons and Dragons session transcript.") or outputs random foreign text (Cyrillic, Chinese, etc.). Fix: raise size threshold + reject transcriptions that match the prompt or consist entirely of non-Latin characters | ❌ |
+| I-14 | Whisper structured-text hallucination: on ambiguous audio Whisper occasionally outputs prompt/template fragments (e.g. `context: ###`). Fix: extend hallucination filter to reject lines matching known artifact patterns | ❌ |
+| I-15 | Rapid clip queue on noisy audio: when multiple speakers talk in quick succession the `activeStreams` lock releases immediately after each clip closes, allowing a burst of short near-silent clips to queue up and all hit Whisper. Fix: add a per-user cooldown after the stream closes (e.g. 1–2 s) to suppress the burst | ❌ |
+| I-16 | Sentence splitting across clips: the 2 s silence window (`end: { behavior: 1, duration: 2000 }`) cuts clips mid-sentence on natural speech pauses, producing two consecutive lines for what was one utterance. Consider increasing the silence window (e.g. 3–4 s) or merging consecutive lines from the same speaker within a short time window | ❌ |
 
 ### Public Pages & Notifications
 
@@ -273,6 +276,12 @@ Items below are ordered by value-to-effort ratio. Phase label in brackets indica
 | ID | Item | Rationale |
 |----|------|-----------|
 | V-9 | Campaign mood board: upload reference images to define visual aesthetic | Powerful creative control but significant UX work; defer until core pipeline is proven |
-| I-5 | DAVE E2EE support for Discord bot | Blocked on `@discordjs/voice` upstream fix; revisit when 0.19.1+ releases |
+| I-12 | Transcript crash resilience (bot) | In-memory transcript lost if Railway process restarts mid-session; flush draft to Supabase periodically |
+| I-13 | Whisper hallucination filter (bot) | Near-silent clips cause Whisper to echo the prompt or output foreign text (Cyrillic, Chinese); raise size threshold + filter known hallucination patterns |
+| I-14 | Whisper structured-text hallucination (bot) | Ambiguous audio produces template fragments like `context: ###`; extend filter to cover these patterns |
+| I-15 | Rapid clip burst on noisy audio (bot) | `activeStreams` lock releases immediately after each clip, allowing a burst of short near-silent clips to queue; add per-user post-stream cooldown |
+| I-16 | Sentence splitting across clips (bot) | 2 s silence window cuts clips mid-sentence; increase window or merge consecutive lines from the same speaker |
+| I-17 | Out-of-order transcript lines (bot) | Lines appended after Whisper returns, not when speech started — long clips land after shorter ones even if they started first; timestamps also reflect Whisper completion time not speech start time |
+| I-17 | Out-of-order transcript lines (bot) | Lines are appended after Whisper returns, not when speech started — a long clip (e.g. 2 min) lands after a short clip (e.g. 30 s) even if it started first. Timestamps are also wrong for the same reason. Fix: capture clip start time before the pipeline, use it for the timestamp, and insert lines in chronological order | ❌ |
 | I-6 | Public campaign pages (read-only, no login) | Good for sharing but requires auth-bypass care; lower urgency while app is invite-only |
 | I-7 | In-app and email notifications (invitations, completed videos) | Nice polish; Resend already integrated so email side is straightforward |
