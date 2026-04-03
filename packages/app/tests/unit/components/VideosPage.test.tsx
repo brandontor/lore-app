@@ -5,13 +5,17 @@ import type { VideoWithSession } from '@/lib/queries/videos';
 
 vi.mock('@/lib/queries/videos', () => ({
   getAllUserVideosWithSession: vi.fn(),
-  groupVideosBySession: vi.fn(),
 }));
+vi.mock('@/lib/video-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/video-utils')>();
+  return { ...actual, groupVideosBySession: vi.fn() };
+});
 vi.mock('@/lib/queries/campaigns', () => ({
   getUserCampaigns: vi.fn(),
 }));
 
-import { getAllUserVideosWithSession, groupVideosBySession } from '@/lib/queries/videos';
+import { getAllUserVideosWithSession } from '@/lib/queries/videos';
+import { groupVideosBySession } from '@/lib/video-utils';
 import { getUserCampaigns } from '@/lib/queries/campaigns';
 import VideosPage from '@/app/(app)/videos/page';
 

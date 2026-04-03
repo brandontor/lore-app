@@ -15,7 +15,7 @@ import type { CampaignWithRole, Transcript, Character, NPC, Location, CampaignMe
 import type { DiscordChannelConfig } from '@/lib/queries/discordChannels';
 import type { VideoWithSession } from '@/lib/queries/videos';
 import type { TranscriptWithSceneCount } from '@/lib/queries/transcripts';
-import { groupVideosBySession } from '@/lib/queries/videos';
+import { groupVideosBySession } from '@/lib/video-utils';
 import { formatStyle } from '@/lib/video-utils';
 
 const baseTabs = ['Overview', 'Transcripts', 'Characters', 'NPCs', 'Locations', 'Videos'] as const;

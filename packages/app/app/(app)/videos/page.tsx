@@ -3,11 +3,11 @@ import { Video, Download, Info, ScrollText, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getAllUserVideosWithSession, groupVideosBySession } from "@/lib/queries/videos";
+import { getAllUserVideosWithSession } from "@/lib/queries/videos";
 import type { VideoWithSession } from "@/lib/queries/videos";
 import { getUserCampaigns } from "@/lib/queries/campaigns";
 import { VideosFilterBar } from "./VideosFilterBar";
-import { formatStyle } from "@/lib/video-utils";
+import { formatStyle, groupVideosBySession } from "@/lib/video-utils";
 import type { VideoStatus } from "@lore/shared";
 
 function formatDuration(seconds: number | null): string {
