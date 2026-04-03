@@ -183,12 +183,13 @@ describe('CampaignDetailTabs — tab content', () => {
     const props = {
       ...baseProps,
       recentSummaries: [
-        buildTranscript({ title: 'Session One', summary: 'The party defeated the goblin king.' }),
+        { ...buildTranscript({ title: 'Session One', summary: 'The party defeated the goblin king.' }), scene_count: 4 },
       ],
     };
     renderWithCampaignContext(<CampaignDetailTabs {...props} />);
-    expect(screen.getByText('Session One')).toBeInTheDocument();
+    expect(screen.getByText(/Session One/i)).toBeInTheDocument();
     expect(screen.getByText(/goblin king/i)).toBeInTheDocument();
+    expect(screen.getByText(/4 scenes extracted/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /read full summary/i })).toBeInTheDocument();
   });
 

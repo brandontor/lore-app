@@ -25,6 +25,7 @@ A player is invited by the DM. Depending on the permission level granted, they c
 | ✅ | Complete — implemented and working |
 | 🚧 | In Progress — UI exists but backend incomplete or data is placeholder |
 | ❌ | Not Started — not yet implemented |
+| ⚠️ | Risk — known technical risk; see risk notes before starting |
 
 ---
 
@@ -127,7 +128,7 @@ Transcripts, Characters, NPCs, Locations, World Notes.
 
 ---
 
-## Phase 3 — Video Generation ✅ Core Pipeline Complete
+## Phase 3 — Video Generation ✅ Complete
 
 Video wizard, AI backend, video player, session context tagging.
 
@@ -146,26 +147,31 @@ Video wizard, AI backend, video player, session context tagging.
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| V-7 | AI scene extraction: LLM reads transcript content + campaign setting + character roster and outputs structured scene records (title, visual description, mood, start/end timestamps, confidence score) stored in a new `transcript_scenes` table | ✅ |
+| V-7 | AI scene extraction: LLM reads transcript + campaign setting + party characters (with appearances) + NPCs + locations; outputs structured scene records stored in `transcript_scenes`: title, 4-sentence cinematic description, mood, timestamps, raw speaker lines, confidence_score, `key_visuals` (3–5 concrete visual nouns), `characters_present` (roster cross-reference) | ✅ |
 | V-8 | Scene extraction triggered on-demand from the transcript detail page ("Extract Scenes" button); DM can review, deselect, or re-run extraction | ✅ |
 | V-9 | Campaign mood board: upload reference images that define the visual aesthetic | ❌ |
 | V-10 | Generation uses character portraits, NPC images, and location art as visual context | ❌ |
 | V-11 | Video generation wizard gains a "Select Scenes" step (Step 2) between transcript selection and style selection; shows AI-extracted scene cards, DM picks which scenes to include | ✅ |
 | V-12 | Scene cards display: title, mood badge (tense / triumphant / mysterious / dramatic / comedic / melancholic), timestamp range, first 2-3 dialogue lines, and confidence indicator | ✅ |
 | V-13 | Video generation produces one short clip per selected scene (max 5 scenes per generation run) | ✅ |
-| V-14 | New DB table `transcript_scenes`: id, transcript_id, campaign_id, title, description (visual prompt), mood, start/end timestamps, raw speaker lines, confidence_score, selected_for_video | ✅ |
+| V-14 | DB table `transcript_scenes`: id, transcript_id, campaign_id, title, description, mood, start/end timestamps, raw speaker lines, confidence_score, selected_for_video, key_visuals, characters_present | ✅ |
+| V-15 | Prompt quality: FLUX guidance_scale 7.0, num_inference_steps 35; `buildVideoPrompt` filters characters/NPCs to those present in the scene, mandates key_visual references in imagePrompt, prohibits generic tropes | ✅ |
+| V-16 | Data health check in generation wizard Step 2: warns when selected scenes reference characters without appearance descriptions, listing their names so the DM can fix before generating | ✅ |
 
 ### Videos
 
 | ID | Requirement | Status |
 |----|-------------|--------|
 | Vi-1 | Global videos page listing all campaign videos | ✅ |
-| Vi-2 | Video grid: title, campaign, duration, created date; keyframe thumbnail shown in grid | ✅ |
+| Vi-2 | Video grid: keyframe thumbnail, title, duration badge, style badge, download link; grouped by transcript/session | ✅ |
 | Vi-3 | Video detail page: player, metadata panel, source transcript panel (linked via `video_transcripts` join table) | ✅ |
 | Vi-4 | Video player: `<video>` element when file ready; keyframe image + spinner overlay while processing; auto-polls status every 5s | ✅ |
 | Vi-5 | Video status lifecycle: pending → processing → completed → failed; driven by fal.ai webhooks with pg_cron fallback poll every minute | ✅ |
 | Vi-6 | Visual style tag on video (matches style selected at generation) | ✅ |
-| Vi-7 | Video download and share functionality | 🚧 (download active when file ready; share is "coming soon") |
+| Vi-7 | Video share: `shareVideo`/`unshareVideo` server actions; public `/share/[token]` page (no auth, ISR cached); SharePanel UI on video detail with copy-link button; `is_shared` + `share_token` columns on videos | ✅ |
+| Vi-8 | Session-based video organisation: /videos page and campaign Videos tab group clips by transcript with "Session N — Title · X clips" headers; ungrouped clips shown in "Other clips" section below | ✅ |
+| Vi-9 | Session Reel viewer: playlist page at `/videos/reel/[transcriptId]` that autoplays clip → next clip in scene order; thumbnail strip for jumping; "Watch Reel" entry point on session headers (2+ completed clips); no stitching — clips remain individual files | ✅ |
+| Vi-10 | Session Reel stitching: server-side ffmpeg concatenation into a single downloadable file with crossfade transitions | ❌ ⚠️ |
 
 ---
 
@@ -180,6 +186,7 @@ Real stats, activity feed, filtering, profile settings.
 | D-1 | Dashboard stat cards: campaigns, transcripts, videos, characters (real data) | ✅ |
 | D-2 | Recent activity feed: latest actions across user's campaigns (real data) | 🚧 (shows recent transcripts; full cross-content activity feed not yet built) |
 | D-3 | Quick action buttons: new campaign, upload transcript | ✅ |
+| D-4 | Campaign Overview "Recent Sessions" cards: session number prefix, summary excerpt (3 lines), scene count ("X scenes extracted"), link to full summary | ✅ |
 
 ### Filtering
 
@@ -251,37 +258,50 @@ Discord bot, public pages, notifications.
 
 ## Next Steps — Prioritised Backlog
 
-Items below are ordered by value-to-effort ratio. Phase label in brackets indicates which area they belong to.
+Items below are ordered by value-to-effort ratio.
+
+---
+
+### ⚠️ Risk Register
+
+Review the relevant risk entry before starting any item marked ⚠️.
+
+| Risk ID | Affects | Risk | Mitigation |
+|---------|---------|------|-----------|
+| R-1 | Vi-10 Stitching | ffmpeg-wasm loads a ~30MB WASM binary from unpkg CDN at stitch time — CDN outage silently fails; consider fal.ai concat API or Railway ffmpeg instead | Fail gracefully to `status = 'error'`; re-evaluate approach when Vi-10 is prioritised |
+| R-2 | Vi-10 Stitching | Cron fires every minute — concurrent Vercel invocations could double-stitch the same collection | Guard with atomic `UPDATE … WHERE status = 'pending'`; only the first writer wins |
+| R-3 | Vi-10 Stitching | Stitching 5 × 10s clips takes ~30–90s — requires Vercel Pro and `maxDuration = 800` on the stitch route | Already on Vercel Pro; revisit when Vi-10 is scheduled |
+| R-4 | I-5 DAVE E2EE | Discord enforcing DAVE for all voice channels from March 2026; `daveEncryption: false` may be rejected | Watch for `@discordjs/voice` patch (likely 0.19.1+), bump version, remove the workaround |
+
+---
 
 ### High Priority
 
 | ID | Item | Rationale |
 |----|------|-----------|
-| V-10 | Use character portraits, NPC images, and location art as visual context in video prompts | High-impact: the asset library (characters, NPCs, locations) now exists — wiring it into the prompt builder closes the loop on Phase 3 |
-| T-8b | Campaign Overview "Recent Sessions" cards show summary excerpt + scene count | Quick win — summaries are already generated; surfacing them on the overview improves daily usability |
-| P-1b | Profile avatar upload (Supabase Storage, similar to character portraits pattern) | P-1 is 🚧; the storage pattern is proven — straightforward to complete |
-| D-2b | Activity feed: show recent transcripts, videos, and NPCs/locations added across campaigns | D-2 is 🚧; expand from transcripts-only to full cross-content feed |
+| V-10 | Character portraits, NPC images, and location art as image conditioning inputs in video prompts | Asset library exists; passing portraits as reference to FLUX is the remaining quality gap after Phase 2 enrichment |
+| W-1 / W-2 | World Notes: free-form lore documents (factions, history, cosmology) per campaign | Completes the world-building content layer; feeds into extractScenes context |
+| P-1b | Profile avatar upload (Supabase Storage, same pattern as character portraits) | P-1 is 🚧; storage pattern is proven — straightforward to complete |
 
 ### Medium Priority
 
 | ID | Item | Rationale |
 |----|------|-----------|
-| W-1 / W-2 | World Notes: free-form lore documents (factions, history, cosmology) per campaign | Completes the "world-building" content layer; low complexity (CRUD + rich text) |
+| D-2b | Activity feed: show recent transcripts, videos, and NPCs/locations across campaigns | D-2 is 🚧; expand from transcripts-only to full cross-content feed |
 | F-1 / F-2 | Filter transcripts and videos by campaign, date range, status | UX quality of life once content volume grows |
-| Vi-7 | Video share: copy shareable link or generate a public URL | Download works; share is the natural next step for the core value prop |
 | T-3 | Transcript status lifecycle (pending → processing → processed → failed) | Currently untracked; needed for bot-uploaded transcripts that may fail processing |
 
 ### Lower Priority / Future
 
 | ID | Item | Rationale |
 |----|------|-----------|
-| V-9 | Campaign mood board: upload reference images to define visual aesthetic | Powerful creative control but significant UX work; defer until core pipeline is proven |
-| I-12 | Transcript crash resilience (bot) | In-memory transcript lost if Railway process restarts mid-session; flush draft to Supabase periodically |
-| I-13 | Whisper hallucination filter (bot) | Near-silent clips cause Whisper to echo the prompt or output foreign text (Cyrillic, Chinese); raise size threshold + filter known hallucination patterns |
-| I-14 | Whisper structured-text hallucination (bot) | Ambiguous audio produces template fragments like `context: ###`; extend filter to cover these patterns |
-| I-15 | Rapid clip burst on noisy audio (bot) | `activeStreams` lock releases immediately after each clip, allowing a burst of short near-silent clips to queue; add per-user post-stream cooldown |
-| I-16 | Sentence splitting across clips (bot) | 2 s silence window cuts clips mid-sentence; increase window or merge consecutive lines from the same speaker |
-| I-17 | Out-of-order transcript lines (bot) | Lines appended after Whisper returns, not when speech started — long clips land after shorter ones even if they started first; timestamps also reflect Whisper completion time not speech start time |
-| I-17 | Out-of-order transcript lines (bot) | Lines are appended after Whisper returns, not when speech started — a long clip (e.g. 2 min) lands after a short clip (e.g. 30 s) even if it started first. Timestamps are also wrong for the same reason. Fix: capture clip start time before the pipeline, use it for the timestamp, and insert lines in chronological order | ❌ |
+| Vi-10 ⚠️ | Session Reel stitching: server-side concat of all session clips into a single downloadable file with crossfade transitions. Approach TBD — ffmpeg-wasm (CDN risk), Railway ffmpeg (invasive), or a managed video API. See R-1 through R-3. | Deferred in favour of browser-side playlist (Vi-9); revisit once Vi-9 is live and validated |
+| V-9 | Campaign mood board: upload reference images to define visual aesthetic | Powerful creative control but significant UX work; defer until core pipeline proven |
+| I-12 | Transcript crash resilience (bot): periodically flush in-memory lines to a draft transcript row so a process crash only loses the tail | In-memory transcript lost on Railway restart mid-session |
+| I-13 | Whisper hallucination filter (bot): near-silent clips cause Whisper to echo the prompt or output foreign text; raise size threshold + filter known patterns | Noisy audio produces garbage transcript lines |
+| I-14 | Whisper structured-text hallucination (bot): ambiguous audio produces template fragments like `context: ###`; extend filter to cover these patterns | Variant of I-13 with different artifact shape |
+| I-15 | Rapid clip burst on noisy audio (bot): add per-user cooldown after stream closes to suppress the burst of short near-silent clips that queue up | `activeStreams` lock releases immediately after each clip |
+| I-16 | Sentence splitting across clips (bot): 2s silence window cuts clips mid-sentence; increase window or merge consecutive lines from the same speaker | Speech pauses produce split lines |
+| I-17 | Out-of-order transcript lines (bot): lines appended after Whisper returns, not when speech started — long clips land after short clips even if they started first; timestamps reflect Whisper completion not speech start. Fix: capture clip start time before pipeline, use it for the timestamp, insert in chronological order | Transcript ordering is wrong for long clips |
 | I-6 | Public campaign pages (read-only, no login) | Good for sharing but requires auth-bypass care; lower urgency while app is invite-only |
 | I-7 | In-app and email notifications (invitations, completed videos) | Nice polish; Resend already integrated so email side is straightforward |

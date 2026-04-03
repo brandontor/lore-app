@@ -99,6 +99,23 @@ export function GenerateVideoWizard({
     (tid) => !allScenes.some((s) => s.transcript_id === tid)
   );
 
+  // Characters referenced in selected scenes but lacking appearance descriptions
+  const characterNameSet = new Set(characters.map((c) => c.name.toLowerCase()));
+  const charactersWithoutAppearance = new Set(
+    characters.filter((c) => !c.appearance).map((c) => c.name.toLowerCase())
+  );
+  const missingAppearanceNames = Array.from(
+    new Set(
+      allScenes
+        .filter((s) => selectedSceneIds.includes(s.id))
+        .flatMap((s) => s.characters_present ?? [])
+        .filter((name) => {
+          const lower = name.toLowerCase();
+          return characterNameSet.has(lower) && charactersWithoutAppearance.has(lower);
+        })
+    )
+  );
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
@@ -244,6 +261,24 @@ export function GenerateVideoWizard({
                       );
                     })}
                   </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Warning for characters referenced in scenes but lacking appearance descriptions */}
+            {missingAppearanceNames.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2.5 dark:border-blue-700 dark:bg-blue-950/30">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                <div className="text-sm text-blue-700 dark:text-blue-400">
+                  <p className="font-medium">
+                    {missingAppearanceNames.length === 1
+                      ? '1 character has no appearance description'
+                      : `${missingAppearanceNames.length} characters have no appearance descriptions`}
+                  </p>
+                  <p className="mt-0.5 text-xs">
+                    Add appearance details on the Characters page for better video results:{' '}
+                    <span className="font-medium">{missingAppearanceNames.join(', ')}</span>
+                  </p>
                 </div>
               </div>
             )}

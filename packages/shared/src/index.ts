@@ -108,6 +108,8 @@ export interface Video {
   motion_intensity: number;
   clip_duration: number;
   requested_by: string;
+  share_token: string | null;
+  is_shared: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -135,6 +137,8 @@ export interface TranscriptScene {
   raw_speaker_lines: string[];
   confidence_score: number;
   selected_for_video: boolean;
+  key_visuals: string[];
+  characters_present: string[];
   created_at: string;
 }
 

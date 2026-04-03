@@ -87,7 +87,7 @@ interface FalQueueStatus {
 }
 
 export async function buildVideoPrompt(
-  scene: Pick<TranscriptScene, 'title' | 'description' | 'mood' | 'raw_speaker_lines'>,
+  scene: Pick<TranscriptScene, 'title' | 'description' | 'mood' | 'raw_speaker_lines' | 'key_visuals' | 'characters_present'>,
   style: VideoStyle,
   campaignName: string,
   campaignSetting: string | null,
@@ -97,17 +97,27 @@ export async function buildVideoPrompt(
 ): Promise<{ imagePrompt: string; motionPrompt: string }> {
   if (!openai) throw new Error('OPENAI_API_KEY not configured');
 
-  const characterDescriptions = characters
+  // Filter characters and NPCs to those present in this scene (if identified)
+  const presentNames = new Set((scene.characters_present ?? []).map((n) => n.toLowerCase()));
+  const filteredCharacters = presentNames.size > 0
+    ? characters.filter((c) => presentNames.has(c.name.toLowerCase()))
+    : characters;
+  const filteredNpcs = presentNames.size > 0
+    ? npcs.filter((n) => presentNames.has(n.name.toLowerCase()))
+    : npcs;
+
+  const characterDescriptions = filteredCharacters
     .filter((c) => c.appearance)
     .map((c) => `${c.name}${c.race ? ` (${c.race}${c.class ? ` ${c.class}` : ''})` : ''}: ${c.appearance}`)
     .join('\n');
 
-  const npcDescriptions = npcs
+  const npcDescriptions = filteredNpcs
     .filter((n) => n.appearance || n.description)
     .map((n) => `${n.name}: ${[n.appearance, n.description].filter(Boolean).join(' — ')}`)
     .join('\n');
 
   const keyDialogue = (scene.raw_speaker_lines ?? []).slice(0, 5).join('\n');
+  const keyVisuals = (scene.key_visuals ?? []).join(', ');
 
   const cameraInstruction = cameraPreset !== 'auto'
     ? `The user has selected this camera move — you MUST use it in the motionPrompt: "${CAMERA_PRESET_LABELS[cameraPreset]}"`
@@ -115,7 +125,7 @@ export async function buildVideoPrompt(
 
   const systemPrompt = `You are a video prompt engineer specialising in fantasy AI video generation for ${style} style.
 Return a JSON object with exactly two fields:
-- "imagePrompt": 80–100 words using the 4-part formula: [Scene Setting] + [Subject Action] + [Camera/Composition] + [Stylistic Keywords]. Describe environment, atmosphere, lighting, and character appearances — prefer body language and silhouettes over facial close-ups. Include specific lighting conditions.
+- "imagePrompt": 80–100 words using the 4-part formula: [Scene Setting] + [Subject Action] + [Camera/Composition] + [Stylistic Keywords]. You MUST reference at least one specific visual element from key_visuals if provided. Describe environment, atmosphere, lighting, and character appearances — prefer body language and silhouettes over facial close-ups. Include specific lighting conditions. Do NOT write generic fantasy tropes.
 - "motionPrompt": 50–70 words using the 4-part formula: [Camera Movement] + [Subject Motion] + [Environmental Motion] + [Pacing/Mood]. ${cameraInstruction}
 Respond with only valid JSON. No markdown, no preamble.`;
 
@@ -125,6 +135,7 @@ Respond with only valid JSON. No markdown, no preamble.`;
     `Scene: "${scene.title}"`,
     `Mood: ${scene.mood}`,
     `Description: ${scene.description}`,
+    keyVisuals ? `Key visuals (must appear): ${keyVisuals}` : null,
     characterDescriptions ? `Characters:\n${characterDescriptions}` : null,
     npcDescriptions ? `NPCs:\n${npcDescriptions}` : null,
     keyDialogue ? `Key dialogue:\n${keyDialogue}` : null,
@@ -178,7 +189,8 @@ export async function generateKeyframe(
       prompt: imagePrompt,
       image_size: 'landscape_16_9',
       num_images: 1,
-      guidance_scale: 3.5,
+      guidance_scale: 7.0,
+      num_inference_steps: 35,
       // output_format and negative_prompt are valid FLUX dev params but not yet
       // reflected in the fal SDK's TypeScript types for this endpoint.
       output_format: 'jpeg', // forces JPEG — keeps extension/MIME consistent

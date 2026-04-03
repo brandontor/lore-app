@@ -114,6 +114,8 @@ export function buildScene(overrides: Partial<TranscriptScene> = {}): Transcript
     raw_speaker_lines: ['[DM] The ground begins to tremble.', '[Aria] Watch out everyone!', '[Theron] Draw your weapons!'],
     confidence_score: 0.8,
     selected_for_video: true,
+    key_visuals: [],
+    characters_present: [],
     created_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
@@ -168,6 +170,8 @@ export function buildVideo(overrides: Partial<Video> = {}): Video {
     motion_intensity: 0.5,
     clip_duration: 5,
     requested_by: OWNER_ID,
+    share_token: null,
+    is_shared: false,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
     ...overrides,

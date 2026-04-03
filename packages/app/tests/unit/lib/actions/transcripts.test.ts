@@ -78,11 +78,13 @@ describe('extractScenes', () => {
   it('returns error when transcript is not found (or does not belong to campaign)', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: OWNER_ID } } });
     mockWriteAccess(true);
-    // Promise.all data fetch: transcript null, campaign ok, characters []
+    // Promise.all data fetch: transcript null, campaign ok, characters/npcs/locations []
     mockFrom
       .mockReturnValueOnce(makeChain(null))                                      // transcripts (not found / wrong campaign)
       .mockReturnValueOnce(makeChain({ name: 'Test', setting: null, system: 'D&D 5e' })) // campaigns
-      .mockReturnValueOnce(makeChain([]));                                       // characters
+      .mockReturnValueOnce(makeChain([]))                                        // characters
+      .mockReturnValueOnce(makeChain([]))                                        // npcs
+      .mockReturnValueOnce(makeChain([]));                                       // locations
     const result = await extractScenes(TRANSCRIPT_ID, CAMPAIGN_ID);
     expect(result).toEqual({ error: 'Transcript not found' });
   });
@@ -93,7 +95,9 @@ describe('extractScenes', () => {
     mockFrom
       .mockReturnValueOnce(makeChain({ content: '   ', title: 'S1', session_number: 1 })) // transcript (empty)
       .mockReturnValueOnce(makeChain({ name: 'Test', setting: null, system: 'D&D 5e' }))
-      .mockReturnValueOnce(makeChain([]));
+      .mockReturnValueOnce(makeChain([]))  // characters
+      .mockReturnValueOnce(makeChain([]))  // npcs
+      .mockReturnValueOnce(makeChain([])); // locations
     const result = await extractScenes(TRANSCRIPT_ID, CAMPAIGN_ID);
     expect(result).toEqual({ error: 'Transcript has no content to analyse' });
   });
@@ -106,7 +110,9 @@ describe('extractScenes', () => {
     mockFrom
       .mockReturnValueOnce(makeChain({ content: 'The party arrived.', title: 'S1', session_number: 1 }))
       .mockReturnValueOnce(makeChain({ name: 'Test', setting: null, system: 'D&D 5e' }))
-      .mockReturnValueOnce(makeChain([]));
+      .mockReturnValueOnce(makeChain([]))  // characters
+      .mockReturnValueOnce(makeChain([]))  // npcs
+      .mockReturnValueOnce(makeChain([])); // locations
     const result = await extractScenes(TRANSCRIPT_ID, CAMPAIGN_ID);
     expect(result).toEqual({ error: 'OpenAI API key not configured' });
     process.env.OPENAI_API_KEY = original;

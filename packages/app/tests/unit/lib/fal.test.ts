@@ -31,6 +31,8 @@ const baseScene = {
     'DM: The ground shakes as the dragon rises.',
     'Theron: We have to hold the line.',
   ],
+  key_visuals: [],
+  characters_present: [],
 };
 
 const baseChars = [

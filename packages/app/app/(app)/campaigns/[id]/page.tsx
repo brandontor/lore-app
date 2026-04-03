@@ -4,7 +4,7 @@ import { getTranscriptsByCampaign, getRecentTranscriptsWithSummaries } from '@/l
 import { getCharactersByCampaign } from '@/lib/queries/characters';
 import { getNpcsByCampaign } from '@/lib/queries/npcs';
 import { getLocationsByCampaign } from '@/lib/queries/locations';
-import { getVideosByCampaign } from '@/lib/queries/videos';
+import { getVideosByCampaignWithSession } from '@/lib/queries/videos';
 import { getDiscordChannelsByCampaign } from '@/lib/queries/discordChannels';
 import { CampaignDetailTabs } from './CampaignDetailTabs';
 
@@ -24,7 +24,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
       getCharactersByCampaign(id),
       getNpcsByCampaign(id),
       getLocationsByCampaign(id),
-      getVideosByCampaign(id),
+      getVideosByCampaignWithSession(id),
       campaign.userRole === 'owner' ? getCampaignMembers(id) : Promise.resolve([]),
       getDiscordChannelsByCampaign(id),
       getRecentTranscriptsWithSummaries(id, 3),

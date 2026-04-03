@@ -71,7 +71,7 @@ export async function generateVideo(
   ] = await Promise.all([
     adminClient
       .from('transcript_scenes')
-      .select('id, transcript_id, title, description, mood, raw_speaker_lines')
+      .select('id, transcript_id, title, description, mood, raw_speaker_lines, key_visuals, characters_present')
       .in('id', newSceneIds)
       .eq('campaign_id', campaignId),
     adminClient
@@ -219,4 +219,77 @@ export async function generateVideo(
 
   revalidatePath('/videos');
   redirect('/videos');
+}
+
+export async function shareVideo(
+  videoId: string
+): Promise<ActionResult<{ token: string; shareUrl: string }>> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const adminClient = createAdminClient();
+
+  const { data: video } = await adminClient
+    .from('videos')
+    .select('campaign_id, status')
+    .eq('id', videoId)
+    .single();
+
+  if (!video) return { error: 'Video not found' };
+  if (video.status !== 'completed') return { error: 'Only completed videos can be shared' };
+
+  const { data: hasWrite } = await supabase.rpc('user_has_campaign_write', {
+    p_campaign_id: video.campaign_id,
+  });
+  if (!hasWrite) return { error: 'Access denied' };
+
+  const token = crypto.randomUUID();
+  const { error: updateError } = await adminClient
+    .from('videos')
+    .update({ is_shared: true, share_token: token })
+    .eq('id', videoId);
+
+  if (updateError) {
+    console.error('[shareVideo] db error:', updateError);
+    return { error: 'Failed to generate share link' };
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? '';
+  revalidatePath(`/videos/${videoId}`);
+  return { data: { token, shareUrl: `${appUrl}/share/${token}` } };
+}
+
+export async function unshareVideo(videoId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const adminClient = createAdminClient();
+
+  const { data: video } = await adminClient
+    .from('videos')
+    .select('campaign_id')
+    .eq('id', videoId)
+    .single();
+
+  if (!video) return { error: 'Video not found' };
+
+  const { data: hasWrite } = await supabase.rpc('user_has_campaign_write', {
+    p_campaign_id: video.campaign_id,
+  });
+  if (!hasWrite) return { error: 'Access denied' };
+
+  const { error: updateError } = await adminClient
+    .from('videos')
+    .update({ is_shared: false, share_token: null })
+    .eq('id', videoId);
+
+  if (updateError) {
+    console.error('[unshareVideo] db error:', updateError);
+    return { error: 'Failed to remove share link' };
+  }
+
+  revalidatePath(`/videos/${videoId}`);
+  return {};
 }

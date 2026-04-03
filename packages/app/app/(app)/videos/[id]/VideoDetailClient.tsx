@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { Video as VideoType, Transcript, VideoStatus } from "@lore/shared";
+import { getStorageUrl } from "@/lib/video-utils";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 
@@ -19,10 +20,6 @@ const SUPABASE_HOSTNAME = (() => {
 
 /** Maximum number of polls before giving up (5s × 60 = 5 minutes). */
 const MAX_POLLS = 60;
-
-function getStorageUrl(storagePath: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/campaign-videos/${storagePath}`;
-}
 
 function isSafeUrl(path: string): boolean {
   if (!path) return false;

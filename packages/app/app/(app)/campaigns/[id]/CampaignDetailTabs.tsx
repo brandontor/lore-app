@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Wand2, Edit, ScrollText, Video, Users } from 'lucide-react';
+import { Wand2, Edit, ScrollText, Video, Users, Play } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -11,8 +11,12 @@ import { DiscordConnectButton } from './DiscordConnectButton';
 import { CharactersTab } from '@/components/campaigns/CharactersTab';
 import { NpcsTab } from '@/components/campaigns/NpcsTab';
 import { LocationsTab } from '@/components/campaigns/LocationsTab';
-import type { CampaignWithRole, Transcript, Character, NPC, Location, Video as VideoType, CampaignMember } from '@lore/shared';
+import type { CampaignWithRole, Transcript, Character, NPC, Location, CampaignMember } from '@lore/shared';
 import type { DiscordChannelConfig } from '@/lib/queries/discordChannels';
+import type { VideoWithSession } from '@/lib/queries/videos';
+import type { TranscriptWithSceneCount } from '@/lib/queries/transcripts';
+import { groupVideosBySession } from '@/lib/queries/videos';
+import { formatStyle } from '@/lib/video-utils';
 
 const baseTabs = ['Overview', 'Transcripts', 'Characters', 'NPCs', 'Locations', 'Videos'] as const;
 
@@ -52,10 +56,10 @@ interface Props {
   characters: Character[];
   npcs: NPC[];
   locations: Location[];
-  videos: VideoType[];
+  videos: VideoWithSession[];
   members: CampaignMember[];
   discordChannels: DiscordChannelConfig[];
-  recentSummaries: Transcript[];
+  recentSummaries: TranscriptWithSceneCount[];
 }
 
 export function CampaignDetailTabs({
@@ -159,15 +163,24 @@ export function CampaignDetailTabs({
                   <div className="space-y-4">
                     {recentSummaries.map((t) => (
                       <div key={t.id} className="border-b border-zinc-100 pb-4 last:border-0 last:pb-0 dark:border-zinc-800">
-                        <div className="mb-1 flex items-center justify-between gap-2">
-                          <span className="font-medium text-zinc-900 dark:text-zinc-100 text-sm">{t.title}</span>
+                        <div className="mb-1 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="block truncate font-medium text-zinc-900 dark:text-zinc-100 text-sm">
+                              {t.session_number ? `Session ${t.session_number} — ` : ''}{t.title}
+                            </span>
+                            {t.scene_count > 0 && (
+                              <span className="text-xs text-zinc-400">
+                                {t.scene_count} {t.scene_count === 1 ? 'scene' : 'scenes'} extracted
+                              </span>
+                            )}
+                          </div>
                           {t.session_date && (
                             <span className="shrink-0 text-xs text-zinc-400">
                               {new Date(t.session_date).toLocaleDateString()}
                             </span>
                           )}
                         </div>
-                        <p className="line-clamp-3 text-xs text-zinc-500">{t.summary}</p>
+                        <p className="mt-1.5 line-clamp-3 text-xs text-zinc-500">{t.summary}</p>
                         <Link
                           href={`/transcripts/${t.id}`}
                           className="mt-1 inline-block text-xs text-violet-600 hover:underline dark:text-violet-400"
@@ -353,74 +366,143 @@ export function CampaignDetailTabs({
       )}
 
       {/* Videos */}
-      {activeTab === 'Videos' && (
-        <div className="space-y-4">
-          {canWrite && (
-            <div className="flex justify-end">
-              <Link href={`/campaigns/${campaign.id}/generate`}>
-                <Button>
-                  <Wand2 className="h-4 w-4" />
-                  Generate New Video
-                </Button>
-              </Link>
-            </div>
-          )}
-          {videos.length === 0 ? (
-            <EmptyState
-              icon={Video}
-              title="No videos yet"
-              description="Generate a video from your session transcripts."
-            />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {videos.map((video) => {
-                const isCompleted = video.status === 'completed';
-                const hasKeyframe = video.image_url !== null && video.image_url !== undefined && isSafeStorageUrl(video.image_url);
-                const date = new Date(video.created_at).toLocaleDateString();
-                return (
-                  <Card key={video.id} className="group overflow-hidden">
-                    <CardContent className="p-0">
-                      <Link href={`/videos/${video.id}`}>
-                        <div className="relative flex h-40 items-center justify-center overflow-hidden bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
-                          {hasKeyframe ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={video.image_url!}
-                              alt={video.title}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <Video className="h-10 w-10 text-zinc-400" />
-                          )}
-                          {!isCompleted && (
-                            <span className="absolute bottom-2 right-2">
-                              <Badge variant={videoStatusBadgeVariant(video.status)}>
-                                {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
-                              </Badge>
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                      <div className="p-4">
-                        <Link href={`/videos/${video.id}`} className="font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">
-                          {video.title}
-                        </Link>
-                        <p className="mt-0.5 text-xs text-zinc-500">{date}</p>
-                        <div className="mt-2 flex items-center justify-between">
-                          <Badge variant="outline">{video.style}</Badge>
-                          {isCompleted && (
-                            <Badge variant="success">Completed</Badge>
-                          )}
-                        </div>
+      {activeTab === 'Videos' && (() => {
+        const { sessions, ungrouped } = groupVideosBySession(videos);
+        return (
+          <div className="space-y-4">
+            {canWrite && (
+              <div className="flex justify-end">
+                <Link href={`/campaigns/${campaign.id}/generate`}>
+                  <Button>
+                    <Wand2 className="h-4 w-4" />
+                    Generate New Video
+                  </Button>
+                </Link>
+              </div>
+            )}
+            {videos.length === 0 ? (
+              <EmptyState
+                icon={Video}
+                title="No videos yet"
+                description="Generate a video from your session transcripts."
+              />
+            ) : (
+              <div className="space-y-8">
+                {sessions.map((session) => {
+                  const sessionLabel = session.session_number ? `Session ${session.session_number}` : null;
+                  return (
+                    <section key={session.transcript_id}>
+                      <div className="mb-3 flex items-center gap-2">
+                        <ScrollText className="h-4 w-4 shrink-0 text-zinc-400" />
+                        <h3 className="flex-1 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          {sessionLabel ? `${sessionLabel} — ` : ''}{session.transcript_title}
+                        </h3>
+                        <span className="shrink-0 text-xs text-zinc-400">
+                          {session.videos.length} {session.videos.length === 1 ? 'clip' : 'clips'}
+                        </span>
+                        {session.videos.filter((v) => v.status === 'completed').length >= 2 && (
+                          <Link
+                            href={`/videos/reel/${session.transcript_id}`}
+                            className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300 dark:hover:bg-violet-950/60"
+                          >
+                            <Play className="h-3 w-3" />
+                            Watch Reel
+                          </Link>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {session.videos.map((video) => {
+                          const isCompleted = video.status === 'completed';
+                          const hasKeyframe = !!video.image_url && isSafeStorageUrl(video.image_url);
+                          return (
+                            <Card key={video.id} className="group overflow-hidden">
+                              <CardContent className="p-0">
+                                <Link href={`/videos/${video.id}`}>
+                                  <div className="relative flex h-40 items-center justify-center overflow-hidden bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
+                                    {hasKeyframe ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img src={video.image_url!} alt={video.title} className="h-full w-full object-cover" />
+                                    ) : (
+                                      <Video className="h-10 w-10 text-zinc-400" />
+                                    )}
+                                    {!isCompleted && (
+                                      <span className="absolute bottom-2 right-2">
+                                        <Badge variant={videoStatusBadgeVariant(video.status)}>
+                                          {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
+                                        </Badge>
+                                      </span>
+                                    )}
+                                  </div>
+                                </Link>
+                                <div className="p-4">
+                                  <Link href={`/videos/${video.id}`} className="font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">
+                                    {video.title}
+                                  </Link>
+                                  <div className="mt-2 flex items-center justify-between">
+                                    <Badge variant="outline">{formatStyle(video.style)}</Badge>
+                                    {isCompleted && <Badge variant="success">Completed</Badge>}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+                {ungrouped.length > 0 && (
+                  <section>
+                    {sessions.length > 0 && (
+                      <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        Other clips
+                      </h3>
+                    )}
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {ungrouped.map((video) => {
+                        const isCompleted = video.status === 'completed';
+                        const hasKeyframe = !!video.image_url && isSafeStorageUrl(video.image_url);
+                        return (
+                          <Card key={video.id} className="group overflow-hidden">
+                            <CardContent className="p-0">
+                              <Link href={`/videos/${video.id}`}>
+                                <div className="relative flex h-40 items-center justify-center overflow-hidden bg-zinc-100 transition-colors group-hover:bg-zinc-200 dark:bg-zinc-800 dark:group-hover:bg-zinc-700">
+                                  {hasKeyframe ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={video.image_url!} alt={video.title} className="h-full w-full object-cover" />
+                                  ) : (
+                                    <Video className="h-10 w-10 text-zinc-400" />
+                                  )}
+                                  {!isCompleted && (
+                                    <span className="absolute bottom-2 right-2">
+                                      <Badge variant={videoStatusBadgeVariant(video.status)}>
+                                        {video.status.charAt(0).toUpperCase() + video.status.slice(1)}
+                                      </Badge>
+                                    </span>
+                                  )}
+                                </div>
+                              </Link>
+                              <div className="p-4">
+                                <Link href={`/videos/${video.id}`} className="font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">
+                                  {video.title}
+                                </Link>
+                                <div className="mt-2 flex items-center justify-between">
+                                  <Badge variant="outline">{formatStyle(video.style)}</Badge>
+                                  {isCompleted && <Badge variant="success">Completed</Badge>}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Members (owner only) */}
       {activeTab === 'Members' && isOwner && (

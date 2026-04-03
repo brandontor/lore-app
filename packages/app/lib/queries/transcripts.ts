@@ -84,14 +84,18 @@ export async function getScenesByTranscript(transcriptId: string): Promise<Trans
   return data as TranscriptScene[];
 }
 
+export interface TranscriptWithSceneCount extends Transcript {
+  scene_count: number;
+}
+
 export async function getRecentTranscriptsWithSummaries(
   campaignId: string,
   limit = 3
-): Promise<Transcript[]> {
+): Promise<TranscriptWithSceneCount[]> {
   const adminClient = createAdminClient();
   const { data, error } = await adminClient
     .from('transcripts')
-    .select('*')
+    .select('*, transcript_scenes(count)')
     .eq('campaign_id', campaignId)
     .not('summary', 'is', null)
     .neq('summary', '')
@@ -99,7 +103,10 @@ export async function getRecentTranscriptsWithSummaries(
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error || !data) return [];
-  return data as Transcript[];
+  return (data as Array<Transcript & { transcript_scenes: [{ count: number }] }>).map((row) => ({
+    ...row,
+    scene_count: row.transcript_scenes?.[0]?.count ?? 0,
+  }));
 }
 
 export async function getAllScenesByTranscripts(transcriptIds: string[]): Promise<TranscriptScene[]> {

@@ -245,10 +245,14 @@ export async function extractScenes(transcriptId: string, campaignId: string): P
     { data: transcript },
     { data: campaign },
     { data: characters },
+    { data: npcs },
+    { data: locations },
   ] = await Promise.all([
     adminClient.from('transcripts').select('content, title, session_number').eq('id', transcriptId).eq('campaign_id', campaignId).single(),
     adminClient.from('campaigns').select('name, setting, system').eq('id', campaignId).single(),
-    adminClient.from('characters').select('name, class, race, level').eq('campaign_id', campaignId),
+    adminClient.from('characters').select('name, class, race, level, appearance').eq('campaign_id', campaignId),
+    adminClient.from('npcs').select('name, appearance, description').eq('campaign_id', campaignId),
+    adminClient.from('locations').select('name, type, description').eq('campaign_id', campaignId),
   ]);
 
   if (!transcript) return { error: 'Transcript not found' };
@@ -261,23 +265,40 @@ export async function extractScenes(transcriptId: string, campaignId: string): P
   const openai = new OpenAI({ apiKey });
 
   const characterRoster = (characters ?? [])
-    .map((c) => `${c.name} (Lvl ${c.level} ${c.race ?? ''} ${c.class ?? ''}`.trim() + ')')
-    .join(', ');
+    .map((c) => {
+      const base = `${c.name} (Lvl ${c.level}${c.race ? ` ${c.race}` : ''}${c.class ? ` ${c.class}` : ''})`;
+      return c.appearance ? `${base}: ${c.appearance}` : base;
+    })
+    .join('\n');
+
+  const npcRoster = (npcs ?? [])
+    .filter((n) => n.appearance || n.description)
+    .map((n) => `${n.name}: ${[n.appearance, n.description].filter(Boolean).join(' — ')}`)
+    .join('\n');
+
+  const locationRoster = (locations ?? [])
+    .map((l) => {
+      const details = [l.type, l.description].filter(Boolean).join(' — ');
+      return details ? `${l.name}: ${details}` : l.name;
+    })
+    .join('\n');
 
   const systemPrompt = `You are a D&D campaign cinematographer. Analyse session transcripts and identify key scenes suitable for cinematic video generation.
 
-Campaign: "${campaign.name}" (${campaign.system})${campaign.setting ? `\nSetting: ${campaign.setting}` : ''}${characterRoster ? `\nParty: ${characterRoster}` : ''}
+Campaign: "${campaign.name}" (${campaign.system})${campaign.setting ? `\nSetting: ${campaign.setting}` : ''}${characterRoster ? `\nParty roster:\n${characterRoster}` : ''}${npcRoster ? `\nNPCs:\n${npcRoster}` : ''}${locationRoster ? `\nLocations:\n${locationRoster}` : ''}
 
 Identify 3–8 cinematically distinct scenes from the transcript. Each scene should be a self-contained dramatic moment worth visualising.
 
 Return a JSON object with a single key "scenes" containing an array of scene objects. Each scene must have:
 - title: string (short, evocative scene title, max 60 chars)
-- description: string (2–3 sentences describing what happens visually, suitable as an image/video generation prompt)
+- description: string (3–4 sentences using this structure: (1) establishing shot — where are we and what does the environment look like, (2) the specific action happening, (3) the emotional beat via body language or expression, (4) one key prop or environmental detail grounding the scene. If you know what characters look like from the provided roster, incorporate their appearance into the description.)
 - mood: one of exactly: "tense", "triumphant", "mysterious", "dramatic", "comedic", "melancholic"
 - start_timestamp: string | null (timestamp from transcript if available, e.g. "00:12:34", else null)
 - end_timestamp: string | null
 - raw_speaker_lines: string[] (3–6 actual lines of dialogue from the transcript that define this scene)
-- confidence_score: number (0.0–1.0, how cinematically distinct and clear this scene is)`;
+- confidence_score: number (0.0–1.0, how cinematically distinct and clear this scene is)
+- key_visuals: string[] (3–5 specific visual elements that MUST appear — concrete nouns like "cracked stone altar", "raised torch", "golden crown". Infer from context if not explicitly stated. Do NOT use abstract adjectives.)
+- characters_present: string[] (names of characters or NPCs from the provided roster who appear in this scene. Only include names that appear in the roster.)`;
 
   const sessionLabel = transcript.title || (transcript.session_number !== null ? `Session ${transcript.session_number}` : 'this session');
   const userPrompt = `Extract cinematic scenes from the transcript for "${sessionLabel}":\n\n${transcript.content.slice(0, 14000)}`;
@@ -312,6 +333,12 @@ Return a JSON object with a single key "scenes" containing an array of scene obj
     return { error: 'Unexpected response format from OpenAI' };
   }
 
+  // Build a lowercase set of all known names for validation
+  const knownNames = new Set([
+    ...(characters ?? []).map((c) => c.name.toLowerCase()),
+    ...(npcs ?? []).map((n) => n.name.toLowerCase()),
+  ]);
+
   const rows = parsed.scenes
     .filter((s): s is Record<string, unknown> => typeof s === 'object' && s !== null)
     .map((s) => {
@@ -319,6 +346,13 @@ Return a JSON object with a single key "scenes" containing an array of scene obj
       const confidence = typeof s.confidence_score === 'number'
         ? Math.max(0, Math.min(1, s.confidence_score))
         : 0.5;
+      // Only keep characters_present names that actually exist in the campaign roster
+      const charactersPresent = Array.isArray(s.characters_present)
+        ? (s.characters_present as unknown[])
+            .filter((l): l is string => typeof l === 'string')
+            .filter((name) => knownNames.has(name.toLowerCase()))
+            .slice(0, 20)
+        : [];
       return {
         transcript_id: transcriptId,
         campaign_id: campaignId,
@@ -332,6 +366,10 @@ Return a JSON object with a single key "scenes" containing an array of scene obj
           : [],
         confidence_score: confidence,
         selected_for_video: true,
+        key_visuals: Array.isArray(s.key_visuals)
+          ? (s.key_visuals as unknown[]).filter((l) => typeof l === 'string').slice(0, 8) as string[]
+          : [],
+        characters_present: charactersPresent,
       };
     });
 
