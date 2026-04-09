@@ -1,6 +1,6 @@
 export type Permission = 'read' | 'write';
 export type CampaignStatus = 'active' | 'paused' | 'completed' | 'archived';
-export type TranscriptStatus = 'pending' | 'processing' | 'processed' | 'error';
+export type TranscriptStatus = 'pending' | 'processing' | 'processed' | 'error' | 'in_progress';
 export type VideoStatus = 'pending' | 'processing' | 'completed' | 'error';
 export type VideoStyle = 'cinematic' | 'anime' | 'painterly' | 'dark-fantasy';
 export type CameraPreset =
