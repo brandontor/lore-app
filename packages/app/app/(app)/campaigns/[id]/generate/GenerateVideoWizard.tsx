@@ -116,6 +116,10 @@ export function GenerateVideoWizard({
     )
   );
 
+  const lowConfidenceScenes = allScenes.filter(
+    (s) => selectedSceneIds.includes(s.id) && s.confidence_score < 0.5
+  );
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
@@ -278,6 +282,24 @@ export function GenerateVideoWizard({
                   <p className="mt-0.5 text-xs">
                     Add appearance details on the Characters page for better video results:{' '}
                     <span className="font-medium">{missingAppearanceNames.join(', ')}</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Warning for low-confidence scenes */}
+            {lowConfidenceScenes.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 dark:border-amber-700 dark:bg-amber-950/30">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="text-sm text-amber-700 dark:text-amber-400">
+                  <p className="font-medium">
+                    {lowConfidenceScenes.length === 1
+                      ? '1 selected scene has a low confidence score'
+                      : `${lowConfidenceScenes.length} selected scenes have low confidence scores`}
+                  </p>
+                  <p className="mt-0.5 text-xs">
+                    These scenes were extracted from sparse transcript sections and may produce less accurate visuals:{' '}
+                    <span className="font-medium">{lowConfidenceScenes.map((s) => s.title).join(', ')}</span>
                   </p>
                 </div>
               </div>

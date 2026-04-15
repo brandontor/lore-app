@@ -150,7 +150,7 @@ Respond with only valid JSON. No markdown, no preamble.`;
       { role: 'user', content: userPrompt },
     ],
     max_tokens: 400,
-    temperature: 0.6,
+    temperature: 0.4,
     response_format: { type: 'json_object' },
   });
 
