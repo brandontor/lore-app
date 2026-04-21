@@ -12,8 +12,9 @@ import {
   DEFAULT_CLIP_DURATION,
 } from '@/lib/fal';
 import { uploadKeyframe } from '@/lib/video-processing';
-import type { ActionResult, VideoStyle, CameraPreset } from '@lore/shared';
+import { getLocationsByCampaign } from '@/lib/queries/locations';
 import { MAX_SCENES } from '@/lib/video-constants';
+import type { ActionResult, VideoStyle, CameraPreset } from '@lore/shared';
 
 export async function generateVideo(
   campaignId: string,
@@ -37,7 +38,7 @@ export async function generateVideo(
 
   // Server-side sanitisation of user-controlled generation params
   const safeIntensity = Math.min(0.8, Math.max(0.3, motionIntensity));
-  const safeDuration = clipDuration === 10 ? 10 : 5; // whitelist — only 5s or 10s
+  const safeDuration = [5, 10, 15].includes(clipDuration) ? clipDuration : 5; // whitelist — only 5s, 10s, or 15s
 
   const adminClient = createAdminClient();
 
@@ -68,6 +69,7 @@ export async function generateVideo(
     { data: campaign },
     { data: characters },
     { data: npcs },
+    locations,
   ] = await Promise.all([
     adminClient
       .from('transcript_scenes')
@@ -87,6 +89,7 @@ export async function generateVideo(
       .from('npcs')
       .select('name, appearance, description')
       .eq('campaign_id', campaignId),
+    getLocationsByCampaign(campaignId),
   ]);
 
   if (!campaign) return { error: 'Campaign not found' };
@@ -94,6 +97,7 @@ export async function generateVideo(
 
   const characterList = characters ?? [];
   const npcList = npcs ?? [];
+  const locationList = locations;
 
   const webhookSecret = process.env.WEBHOOK_SECRET;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -112,7 +116,8 @@ export async function generateVideo(
         campaign.setting ?? null,
         characterList,
         npcList,
-        cameraPreset
+        cameraPreset,
+        locationList
       );
 
       const sceneTitle = scene.title || 'Untitled Scene';

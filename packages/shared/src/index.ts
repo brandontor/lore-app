@@ -139,6 +139,7 @@ export interface TranscriptScene {
   selected_for_video: boolean;
   key_visuals: string[];
   characters_present: string[];
+  location_name: string | null;
   created_at: string;
 }
 

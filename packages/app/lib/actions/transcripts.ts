@@ -291,14 +291,20 @@ Identify 3–8 cinematically distinct scenes from the transcript. Each scene sho
 
 Return a JSON object with a single key "scenes" containing an array of scene objects. Each scene must have:
 - title: string (short, evocative scene title, max 60 chars)
-- description: string (3–4 sentences using this structure: (1) establishing shot — where are we and what does the environment look like, (2) the specific action happening, (3) the emotional beat via body language or expression, (4) one key prop or environmental detail grounding the scene. If you know what characters look like from the provided roster, incorporate their appearance into the description.)
+- description: string (3–4 sentences using this CINEMATIC structure:
+  (1) Establishing shot — where are we, what does the space look like, who is positioned where (foreground vs background). Be specific about spatial layout: "Aramis stands center-frame in the foreground, sword raised; the rest of the party arrayed in midground behind him; the dragon's massive silhouette fills the upper background."
+  (2) The specific action happening — what are the characters physically doing.
+  (3) The emotional beat — conveyed via body language, posture, expression. Avoid abstract emotion words; show it visually.
+  (4) One key grounding detail — a prop, lighting condition, or environmental texture that anchors the scene.
+  If you know character appearances from the roster, incorporate them into sentence 1 or 3.)
 - mood: one of exactly: "tense", "triumphant", "mysterious", "dramatic", "comedic", "melancholic"
 - start_timestamp: string | null (timestamp from transcript if available, e.g. "00:12:34", else null)
 - end_timestamp: string | null
 - raw_speaker_lines: string[] (3–6 actual lines of dialogue from the transcript that define this scene)
 - confidence_score: number (0.0–1.0, how cinematically distinct and clear this scene is)
 - key_visuals: string[] (3–5 specific visual elements that MUST appear — concrete nouns like "cracked stone altar", "raised torch", "golden crown". Infer from context if not explicitly stated. Do NOT use abstract adjectives.)
-- characters_present: string[] (names of characters or NPCs from the provided roster who appear in this scene. Only include names that appear in the roster.)`;
+- characters_present: string[] (names of characters or NPCs from the provided roster who appear in this scene. Only include names that appear in the roster.)
+- location_name: string | null (the name of the location where this scene takes place, matched exactly to one of the provided campaign locations if possible; otherwise a short descriptive label like "forest clearing" or "dungeon corridor"; null if completely unknown)`;
 
   const sessionLabel = transcript.title || (transcript.session_number !== null ? `Session ${transcript.session_number}` : 'this session');
   const userPrompt = `Extract cinematic scenes from the transcript for "${sessionLabel}":\n\n${transcript.content.slice(0, 14000)}`;
@@ -370,6 +376,9 @@ Return a JSON object with a single key "scenes" containing an array of scene obj
           ? (s.key_visuals as unknown[]).filter((l) => typeof l === 'string').slice(0, 8) as string[]
           : [],
         characters_present: charactersPresent,
+        location_name: typeof s.location_name === 'string' && s.location_name.trim()
+          ? s.location_name.trim().slice(0, 100)
+          : null,
       };
     });
 

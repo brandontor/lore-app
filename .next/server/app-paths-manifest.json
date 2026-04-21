@@ -1,0 +1,21 @@
+{
+  "/(app)/campaigns/[id]/edit/page": "app/(app)/campaigns/[id]/edit/page.js",
+  "/(app)/campaigns/[id]/generate/page": "app/(app)/campaigns/[id]/generate/page.js",
+  "/(app)/campaigns/[id]/members/page": "app/(app)/campaigns/[id]/members/page.js",
+  "/(app)/campaigns/[id]/page": "app/(app)/campaigns/[id]/page.js",
+  "/(app)/campaigns/new/page": "app/(app)/campaigns/new/page.js",
+  "/(app)/campaigns/page": "app/(app)/campaigns/page.js",
+  "/(app)/dashboard/page": "app/(app)/dashboard/page.js",
+  "/(app)/transcripts/[id]/page": "app/(app)/transcripts/[id]/page.js",
+  "/(app)/transcripts/page": "app/(app)/transcripts/page.js",
+  "/(app)/videos/[id]/page": "app/(app)/videos/[id]/page.js",
+  "/(app)/videos/page": "app/(app)/videos/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/callback/route": "app/auth/callback/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/invite/[token]/page": "app/invite/[token]/page.js",
+  "/page": "app/page.js"
+}

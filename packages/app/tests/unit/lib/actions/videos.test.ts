@@ -24,8 +24,8 @@ vi.mock('@/lib/fal', () => ({
   buildVideoPrompt:      (...args: unknown[]) => mockBuildVideoPrompt(...args),
   generateKeyframe:      (...args: unknown[]) => mockGenerateKeyframe(...args),
   submitImageToVideoFal: (...args: unknown[]) => mockSubmitImageToVideo(...args),
-  FAL_VIDEO_MODEL: 'fal-ai/kling-video/v2.1/pro/image-to-video',
-  DEFAULT_MOTION_INTENSITY: 0.5,
+  FAL_VIDEO_MODEL: 'fal-ai/kling-video/v3/pro/image-to-video',
+  DEFAULT_MOTION_INTENSITY: 0.45,
   DEFAULT_CLIP_DURATION: 5,
 }));
 
@@ -34,6 +34,13 @@ const mockUploadKeyframe = vi.fn();
 
 vi.mock('@/lib/video-processing', () => ({
   uploadKeyframe: (...args: unknown[]) => mockUploadKeyframe(...args),
+}));
+
+// ---- locations query mock ----
+const mockGetLocationsByCampaign = vi.fn();
+
+vi.mock('@/lib/queries/locations', () => ({
+  getLocationsByCampaign: (...args: unknown[]) => mockGetLocationsByCampaign(...args),
 }));
 
 vi.mock('next/cache',      () => ({ revalidatePath: vi.fn() }));
@@ -76,6 +83,7 @@ beforeEach(() => {
   mockUploadKeyframe.mockResolvedValue({
     storageUrl: 'https://supabase.co/storage/v1/object/public/campaign-videos/camp/vid_keyframe.jpg',
   });
+  mockGetLocationsByCampaign.mockResolvedValue([]);
 });
 
 // Helper: mock a successful write-access RPC
@@ -239,7 +247,8 @@ describe('generateVideo', () => {
       null,
       [],
       [],
-      'auto'
+      'auto',
+      []  // locations
     );
   });
 
@@ -256,7 +265,7 @@ describe('generateVideo', () => {
     expect(mockSubmitImageToVideo).toHaveBeenCalledWith(
       'https://supabase.co/storage/v1/object/public/campaign-videos/camp/vid_keyframe.jpg',
       expect.any(String),
-      expect.objectContaining({ cfgScale: 0.5, duration: 5 })
+      expect.objectContaining({ cfgScale: 0.45, duration: 5 })
     );
   });
 
@@ -331,7 +340,7 @@ describe('generateVideo', () => {
       .mockReturnValueOnce(makeChain(null));
     await generateVideo(CAMPAIGN_ID, [SCENE_ID], 'cinematic', 'Test');
     expect(insertChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ fal_model: 'fal-ai/kling-video/v2.1/pro/image-to-video' })
+      expect.objectContaining({ fal_model: 'fal-ai/kling-video/v3/pro/image-to-video' })
     );
   });
 

@@ -116,11 +116,13 @@ describe('buildVideoPrompt', () => {
     expect(userMsg).not.toContain('Key dialogue');
   });
 
-  it('prepends the style prefix to both returned prompts', async () => {
+  it('prepends the style prefix to imagePrompt but not motionPrompt', async () => {
     mockOpenAIResponse('wide plains at dusk', 'slow dolly forward');
     const result = await buildVideoPrompt(baseScene, 'cinematic', 'My Campaign', null, [], []);
     expect(result.imagePrompt).toMatch(/^Epic cinematic fantasy film/);
-    expect(result.motionPrompt).toMatch(/^Epic cinematic fantasy film/);
+    // Style prefix is intentionally NOT applied to motionPrompt — it contains
+    // image-composition terms that don't belong in a motion directive
+    expect(result.motionPrompt).toBe('slow dolly forward');
   });
 
   it('throws when OpenAI returns empty content', async () => {

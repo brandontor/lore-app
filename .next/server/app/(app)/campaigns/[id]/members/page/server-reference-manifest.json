@@ -1,0 +1,65 @@
+{
+  "node": {
+    "603bb80c502dd2f4dd0517acbc7f37f517e7566879": {
+      "workers": {
+        "app/(app)/campaigns/[id]/members/page": {
+          "moduleId": 39843,
+          "async": false,
+          "exportedName": "sendInvitation",
+          "filename": "lib/actions/invitations.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/campaigns/[id]/members/page": "action-browser"
+      },
+      "exportedName": "sendInvitation",
+      "filename": "lib/actions/invitations.ts"
+    },
+    "70f37176702d643bc6fbaa4a77baf4b54738831b4c": {
+      "workers": {
+        "app/(app)/campaigns/[id]/members/page": {
+          "moduleId": 39843,
+          "async": false,
+          "exportedName": "updateMemberPermission",
+          "filename": "lib/actions/members.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/campaigns/[id]/members/page": "action-browser"
+      },
+      "exportedName": "updateMemberPermission",
+      "filename": "lib/actions/members.ts"
+    },
+    "6092f66a4845a77f0bd50cda2cd6b255e4e243f745": {
+      "workers": {
+        "app/(app)/campaigns/[id]/members/page": {
+          "moduleId": 39843,
+          "async": false,
+          "exportedName": "removeMember",
+          "filename": "lib/actions/members.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/campaigns/[id]/members/page": "action-browser"
+      },
+      "exportedName": "removeMember",
+      "filename": "lib/actions/members.ts"
+    },
+    "60368b1342c590a02a3fa12234d20545abf675945b": {
+      "workers": {
+        "app/(app)/campaigns/[id]/members/page": {
+          "moduleId": 39843,
+          "async": false,
+          "exportedName": "revokeInvitation",
+          "filename": "lib/actions/invitations.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/campaigns/[id]/members/page": "action-browser"
+      },
+      "exportedName": "revokeInvitation",
+      "filename": "lib/actions/invitations.ts"
+    }
+  },
+  "edge": {}
+}

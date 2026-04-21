@@ -1,6 +1,6 @@
 import { fal } from '@fal-ai/client';
 import OpenAI from 'openai';
-import type { TranscriptScene, Character, NPC, VideoStyle, CameraPreset } from '@lore/shared';
+import type { TranscriptScene, Character, NPC, Location, VideoStyle, CameraPreset } from '@lore/shared';
 
 fal.config({ credentials: process.env.FAL_KEY });
 
@@ -10,16 +10,16 @@ const openai = process.env.OPENAI_API_KEY
   : null;
 
 export const DEFAULT_CLIP_DURATION = 5;
-export const DEFAULT_MOTION_INTENSITY = 0.5;
+export const DEFAULT_MOTION_INTENSITY = 0.45;
 
 export const FAL_IMAGE_MODEL = 'fal-ai/flux/dev';
-export const FAL_VIDEO_MODEL = 'fal-ai/kling-video/v2.1/pro/image-to-video';
+export const FAL_VIDEO_MODEL = 'fal-ai/kling-video/v3/pro/image-to-video';
 
 // Fantasy-targeted negative prompts, split by model
 export const FLUX_NEGATIVE_PROMPT =
-  'extra fingers, distorted face, extra limbs, anatomical errors, low resolution, blurry, plastic skin, flat lighting, oversaturated, watermark, text';
+  'extra fingers, distorted face, fused limbs, anatomical errors, low resolution, blurry, plastic skin, flat lighting, oversaturated, watermark, text, cluttered background';
 export const KLING_NEGATIVE_PROMPT =
-  'blur, distort, low quality, watermark, text overlay, flickering, jitter, morphing faces, extra limbs, anatomical errors, overexposed, underexposed, static, grain artifacts';
+  'blur, distort, low quality, watermark, text overlay, strobing, temporal flickering, limb glitching, arms swinging wrong tempo, foot sliding, character popping, morphing faces, extra limbs, anatomical errors, overexposed, underexposed, grain artifacts, jitter, shaky cam, rapid cuts, abrupt motion changes';
 
 /** Hostnames from which the server is allowed to fetch fal.ai video files. */
 export const FAL_ALLOWED_HOSTNAMES = new Set([
@@ -55,24 +55,24 @@ const STYLE_PREFIXES: Record<VideoStyle, string> = {
 /** Human-readable label appended to motionPrompt when a named camera preset is chosen. */
 export const CAMERA_PRESET_LABELS: Record<CameraPreset, string> = {
   'auto': '',
-  'slow-dolly-in': 'Slow dolly in.',
-  'tracking-shot': 'Tracking shot following the action.',
-  'crane-up': 'Crane up to reveal scale.',
-  'crash-zoom': 'Crash zoom for dramatic impact.',
-  'low-angle-dolly': 'Low angle dolly for heroic framing.',
-  'rack-focus-pan': 'Rack focus pan for mystery and environmental reveal.',
-  'static-wide': 'Static wide shot, slow drift.',
+  'slow-dolly-in': 'CAMERA: slow push-in toward subject.',
+  'tracking-shot': 'CAMERA: tracking shot following the action laterally.',
+  'crane-up': 'CAMERA: crane up slowly to reveal scale.',
+  'crash-zoom': 'CAMERA: fast crash zoom in for dramatic impact.',
+  'low-angle-dolly': 'CAMERA: low-angle dolly forward for heroic framing.',
+  'rack-focus-pan': 'CAMERA: slow pan with rack focus shift for mystery and environmental reveal.',
+  'static-wide': 'CAMERA: static wide shot, minimal drift.',
 };
 
-/** Mood-to-camera vocabulary hint for the GPT system prompt. */
+/** Mood-to-camera vocabulary hint for the GPT system prompt (auto mode only). */
 const MOOD_CAMERA_HINTS = `
-Mood → suggested camera:
-- tense: crash zoom or slow push in
-- triumphant: crane up or low-angle dolly
-- mysterious: slow pan with rack focus
-- dramatic: slow dolly in or low-angle dolly
-- comedic: static wide or gentle tracking shot
-- melancholic: static wide with slow drift`;
+Mood → suggested camera (pick the most fitting):
+- tense: CAMERA: crash zoom in OR slow push-in
+- triumphant: CAMERA: crane up slowly OR low-angle dolly forward
+- mysterious: CAMERA: slow pan with rack focus shift
+- dramatic: CAMERA: slow dolly in OR low-angle dolly forward
+- comedic: CAMERA: static wide hold OR gentle tracking shot
+- melancholic: CAMERA: static wide, slow drift`;
 
 interface FalVideoResult {
   video: { url: string };
@@ -93,7 +93,8 @@ export async function buildVideoPrompt(
   campaignSetting: string | null,
   characters: Pick<Character, 'name' | 'appearance' | 'race' | 'class'>[],
   npcs: Pick<NPC, 'name' | 'appearance' | 'description'>[],
-  cameraPreset: CameraPreset = 'auto'
+  cameraPreset: CameraPreset = 'auto',
+  locations: Pick<Location, 'name' | 'type' | 'description'>[] = []
 ): Promise<{ imagePrompt: string; motionPrompt: string }> {
   if (!openai) throw new Error('OPENAI_API_KEY not configured');
 
@@ -119,25 +120,70 @@ export async function buildVideoPrompt(
   const keyDialogue = (scene.raw_speaker_lines ?? []).slice(0, 5).join('\n');
   const keyVisuals = (scene.key_visuals ?? []).join(', ');
 
+  // Find the most relevant location by matching scene text against location names
+  const sceneText = `${scene.title} ${scene.description}`.toLowerCase();
+  const matchedLocations = locations.filter((l) => sceneText.includes(l.name.toLowerCase()));
+  const locationContext = matchedLocations.length > 0
+    ? matchedLocations.slice(0, 2)
+    : locations.slice(0, 2); // fallback: top 2 campaign locations as setting context
+  const locationText = locationContext
+    .filter((l) => l.name)
+    .map((l) => {
+      const details = [l.type, l.description].filter(Boolean).join(' — ');
+      return details ? `${l.name}: ${details}` : l.name;
+    })
+    .join('\n');
+
   const cameraInstruction = cameraPreset !== 'auto'
-    ? `The user has selected this camera move — you MUST use it in the motionPrompt: "${CAMERA_PRESET_LABELS[cameraPreset]}"`
+    ? `REQUIRED camera move — you MUST use this exactly in motionPrompt: "${CAMERA_PRESET_LABELS[cameraPreset]}"`
     : `Choose camera movement based on mood:${MOOD_CAMERA_HINTS}`;
 
   const systemPrompt = `You are a video prompt engineer specialising in fantasy AI video generation for ${style} style.
-Return a JSON object with exactly two fields:
-- "imagePrompt": 80–100 words using the 4-part formula: [Scene Setting] + [Subject Action] + [Camera/Composition] + [Stylistic Keywords]. You MUST reference at least one specific visual element from key_visuals if provided. Describe environment, atmosphere, lighting, and character appearances — prefer body language and silhouettes over facial close-ups. Include specific lighting conditions. Do NOT write generic fantasy tropes.
-- "motionPrompt": 50–70 words using the 4-part formula: [Camera Movement] + [Subject Motion] + [Environmental Motion] + [Pacing/Mood]. ${cameraInstruction}
+Return a JSON object with exactly two fields: "imagePrompt" and "motionPrompt".
+
+═══ imagePrompt RULES (80–100 words) ═══
+Structure MUST follow: [Background/Environment] → [Midground elements] → [Foreground subject(s)] → [Lighting & lens]
+- Spatial positions are required: "warrior standing center-left in foreground", "ruined altar in midground right"
+- Lens language: 35mm (wide establishing), 50mm (natural scene), 85mm (emotional close-up), 24mm (epic scale)
+- Aperture: f/1.4–f/2.8 for shallow depth of field; f/8 for sharp environmental shots
+- Physical light sources ONLY — never vague terms like "dramatic lighting":
+  ✓ "single torch on left wall casting warm orange light"
+  ✓ "cool blue moonlight through stone window, rim-lighting shoulders"
+- You MUST reference at least one element from key_visuals if provided
+- Party characters (PCs) are PROTAGONISTS — place at least one in foreground, describe their appearance specifically
+- NPCs are SUPPORTING — place in midground or background; describe their spatial relationship to protagonists
+- NEVER include motion verbs in imagePrompt (no "rushing", "charging", "swinging") — motion belongs in motionPrompt only
+- NEVER write generic clichés ("epic battle", "dark dungeon") — every detail must be specific and concrete
+
+Mood → lighting guide (apply this to the imagePrompt):
+- tense: harsh side-lighting, deep shadows, single strong key light with high contrast
+- triumphant: golden hour uplighting, warm rim light on hero, bright highlights
+- mysterious: subject silhouetted against soft ambient glow, fog catching available light
+- dramatic: chiaroscuro contrast, single strong directional source, deep shadow pools
+- comedic: even warm lighting, no harsh shadows, bright and fully legible scene
+- melancholic: soft diffused light, cool blue/grey palette, low contrast, muted highlights
+
+═══ motionPrompt RULES (50–70 words) ═══
+- ALWAYS start with "CAMERA:" followed by ONE specific, measured camera movement
+- Measured verbs ONLY: "slow push-in", "gentle pan left to right", "crane up 15 degrees", "static wide hold", "low-angle dolly forward 2 metres"
+- NEVER use vague intensity words: no "dramatic", "fast", "sweeping", "intense" — describe what physically moves and how
+- After camera: subject motion (what characters/objects physically do)
+- Then: environmental motion (torchlight flickers, dust settles, leaves drift)
+- End with: one pacing phrase matching the mood (e.g., "unhurried, melancholic tempo" or "building tension, gradual acceleration")
+${cameraInstruction}
+
 Respond with only valid JSON. No markdown, no preamble.`;
 
   const contextSections = [
     `Campaign: "${campaignName}"`,
     campaignSetting ? `World/Setting: ${campaignSetting}` : null,
+    locationText ? `Location context:\n${locationText}` : null,
     `Scene: "${scene.title}"`,
     `Mood: ${scene.mood}`,
     `Description: ${scene.description}`,
-    keyVisuals ? `Key visuals (must appear): ${keyVisuals}` : null,
-    characterDescriptions ? `Characters:\n${characterDescriptions}` : null,
-    npcDescriptions ? `NPCs:\n${npcDescriptions}` : null,
+    keyVisuals ? `Key visuals (must reference at least one): ${keyVisuals}` : null,
+    characterDescriptions ? `Party characters (PROTAGONISTS — place in foreground):\n${characterDescriptions}` : null,
+    npcDescriptions ? `NPCs (SUPPORTING — place in midground/background):\n${npcDescriptions}` : null,
     keyDialogue ? `Key dialogue:\n${keyDialogue}` : null,
   ].filter(Boolean);
 
@@ -165,7 +211,10 @@ Respond with only valid JSON. No markdown, no preamble.`;
   const prefix = STYLE_PREFIXES[style];
   return {
     imagePrompt: `${prefix} ${parsed.imagePrompt}`,
-    motionPrompt: `${prefix} ${parsed.motionPrompt}`,
+    // Style prefix is intentionally NOT prepended to motionPrompt — it contains
+    // image-composition terms (lens, depth of field) that don't belong in a
+    // motion directive. The keyframe itself already conveys the visual style.
+    motionPrompt: parsed.motionPrompt,
   };
 }
 
@@ -237,19 +286,22 @@ export async function submitImageToVideoFal(
   }
 ): Promise<{ requestId: string }> {
   const { webhookUrl, cfgScale = DEFAULT_MOTION_INTENSITY, duration = DEFAULT_CLIP_DURATION } = options ?? {};
-  // Whitelist duration to the two values Kling accepts; reject anything else explicitly
-  const durationStr: '5' | '10' = duration === 10 ? '10' : '5';
+  // Whitelist duration to the values Kling accepts; reject anything else explicitly
+  const durationStr: '5' | '10' | '15' = duration === 15 ? '15' : duration === 10 ? '10' : '5';
   const handle = await fal.queue.submit(FAL_VIDEO_MODEL, {
     input: {
-      image_url: imageUrl,
+      // Kling v3 uses start_image_url (v2.x used image_url)
+      start_image_url: imageUrl,
       prompt: motionPrompt,
       duration: durationStr,
-      aspect_ratio: '16:9',
-      // negative_prompt is supported by Kling v2.1 pro on fal.ai per their input schema
+      // aspect_ratio not required for v3 — determined by input image dimensions
+      // (our keyframes are generated as landscape_16_9 by FLUX)
       negative_prompt: KLING_NEGATIVE_PROMPT,
       // cfg_scale controls prompt adherence (0–1). Not yet in the fal SDK's
       // TypeScript types for this endpoint, so cast to any.
       cfg_scale: cfgScale,
+      // Disable audio generation — we don't use it and it adds latency
+      generate_audio: false,
     } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     ...(webhookUrl ? { webhookUrl } : {}),
   });

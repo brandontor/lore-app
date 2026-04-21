@@ -116,6 +116,7 @@ export function buildScene(overrides: Partial<TranscriptScene> = {}): Transcript
     selected_for_video: true,
     key_visuals: [],
     characters_present: [],
+    location_name: null,
     created_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };

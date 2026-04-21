@@ -120,6 +120,26 @@ export function GenerateVideoWizard({
     (s) => selectedSceneIds.includes(s.id) && s.confidence_score < 0.5
   );
 
+  // Characters with portraits (for keyframe quality)
+  const charactersWithPortrait = new Set(
+    characters.filter((c) => c.portrait_url).map((c) => c.name.toLowerCase())
+  );
+  // Only warn when a scene has at least one PC character referenced but none have portraits.
+  // NPC-only scenes are excluded — NPCs don't have portrait_url, so they'd always trigger.
+  const scenesWithNoPortraitedCharacters = allScenes.filter((s) => {
+    if (!selectedSceneIds.includes(s.id)) return false;
+    const present = (s.characters_present ?? []).map((n) => n.toLowerCase());
+    // Narrow to PC characters only (those in the campaign characters roster)
+    const pcCharactersInScene = present.filter((n) => characterNameSet.has(n));
+    if (pcCharactersInScene.length === 0) return false;
+    return !pcCharactersInScene.some((n) => charactersWithPortrait.has(n));
+  });
+
+  // Scenes with very sparse descriptions (< 50 words)
+  const sparseScenes = allScenes.filter(
+    (s) => selectedSceneIds.includes(s.id) && s.description.split(/\s+/).filter(Boolean).length < 50
+  );
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
@@ -305,6 +325,42 @@ export function GenerateVideoWizard({
               </div>
             )}
 
+            {/* Warning for scenes where no characters have portraits */}
+            {scenesWithNoPortraitedCharacters.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2.5 dark:border-blue-700 dark:bg-blue-950/30">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                <div className="text-sm text-blue-700 dark:text-blue-400">
+                  <p className="font-medium">
+                    {scenesWithNoPortraitedCharacters.length === 1
+                      ? '1 scene has no character portraits'
+                      : `${scenesWithNoPortraitedCharacters.length} scenes have no character portraits`}
+                  </p>
+                  <p className="mt-0.5 text-xs">
+                    Adding portraits on the Characters page gives the AI a visual anchor for character appearances, improving keyframe accuracy:{' '}
+                    <span className="font-medium">{scenesWithNoPortraitedCharacters.map((s) => s.title).join(', ')}</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Warning for sparse scene descriptions */}
+            {sparseScenes.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 dark:border-amber-700 dark:bg-amber-950/30">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="text-sm text-amber-700 dark:text-amber-400">
+                  <p className="font-medium">
+                    {sparseScenes.length === 1
+                      ? '1 scene has a sparse description'
+                      : `${sparseScenes.length} scenes have sparse descriptions`}
+                  </p>
+                  <p className="mt-0.5 text-xs">
+                    Re-extracting scenes after adding more transcript content may produce richer visuals:{' '}
+                    <span className="font-medium">{sparseScenes.map((s) => s.title).join(', ')}</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
             {selectedTranscripts.length === 0 ? (
               <p className="text-sm text-zinc-500">No transcripts selected.</p>
             ) : (
@@ -444,6 +500,7 @@ export function GenerateVideoWizard({
                   {[
                     { value: 5, label: "5 seconds", hint: "Focused, coherent motion" },
                     { value: 10, label: "10 seconds", hint: "More coverage, may drift" },
+                    { value: 15, label: "15 seconds", hint: "Extended take, cinematic pace" },
                   ].map((opt) => (
                     <button
                       key={opt.value}

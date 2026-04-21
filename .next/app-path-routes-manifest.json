@@ -1,0 +1,21 @@
+{
+  "/(app)/campaigns/[id]/edit/page": "/campaigns/[id]/edit",
+  "/(app)/campaigns/[id]/generate/page": "/campaigns/[id]/generate",
+  "/(app)/campaigns/[id]/members/page": "/campaigns/[id]/members",
+  "/(app)/campaigns/[id]/page": "/campaigns/[id]",
+  "/(app)/campaigns/new/page": "/campaigns/new",
+  "/(app)/campaigns/page": "/campaigns",
+  "/(app)/dashboard/page": "/dashboard",
+  "/(app)/transcripts/[id]/page": "/transcripts/[id]",
+  "/(app)/transcripts/page": "/transcripts",
+  "/(app)/videos/[id]/page": "/videos/[id]",
+  "/(app)/videos/page": "/videos",
+  "/(auth)/login/page": "/login",
+  "/(auth)/register/page": "/register",
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/auth/callback/route": "/auth/callback",
+  "/favicon.ico/route": "/favicon.ico",
+  "/invite/[token]/page": "/invite/[token]",
+  "/page": "/"
+}
