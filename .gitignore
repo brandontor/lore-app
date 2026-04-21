@@ -17,6 +17,7 @@ packages/app/test-results/
 packages/app/tests/e2e/.auth/
 
 # next.js
+.next/
 packages/app/.next/
 packages/app/out/
 
@@ -42,6 +43,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude code
+.claude/
+
 # typescript
 *.tsbuildinfo
+next-env.d.ts
 packages/app/next-env.d.ts
